@@ -1,0 +1,49 @@
+# Archivo .dockerignore para optimizar el build
+# Ignorar archivos y directorios innecesarios
+
+# Directorios de Maven
+target/
+!target/web-services-*.jar
+
+# Directorios de IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Archivos temporales
+*.tmp
+*.temp
+
+# Node modules (si los hay)
+node_modules/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Archivos de backup
+*.bak
+*.swp
+*.swo
+
+# Archivos de configuración local
+application-local.properties
+application-dev.properties
+
+# Archivos de documentación
+*.md
+docs/
