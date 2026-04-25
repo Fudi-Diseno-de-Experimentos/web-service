@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -149,11 +150,19 @@ public class ProfileController {
         @ApiResponse(responseCode = "404", description = "Profile not found",
                 content = @Content)
     })
+    @PreAuthorize("hasRole('ROLE_ADMIN') or @profileRepository.findById(#profileId).orElse(null)?.userId?.userId()?.toString() == authentication.name")
     public ResponseEntity<ProfileResource> updateProfile(
             @Parameter(description = "Profile ID", required = true)
             @PathVariable UUID profileId,
             @Parameter(description = "Profile update request", required = true)
             @Valid @RequestBody UpdateProfileResource resource) {
+        
+        var query = new GetProfileByIdQuery(profileId);
+        var existingProfile = profileQueryService.handle(query);
+        
+        if (existingProfile.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
         
         var command = UpdateProfileCommandFromResourceAssembler.toCommandFromResource(profileId, resource);
         var profile = profileCommandService.handle(command);

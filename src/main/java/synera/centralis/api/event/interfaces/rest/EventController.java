@@ -50,7 +50,7 @@ public class EventController {
      */
 
     @PostMapping
-    @PreAuthorize("hasRole('MANAGER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('MANAGER')")
     @Operation(summary = "Create a new event", description = "Creates a new business event with the provided information")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Event created successfully"),
@@ -205,7 +205,7 @@ public class EventController {
      * Updates an event's information.
      */
     @PutMapping("/{eventId}")
-    @PreAuthorize("hasRole('MANAGER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('MANAGER')")
     @Operation(summary = "Update event", description = "Updates event information including title, description, date, location, and recipients")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Event updated successfully"),
@@ -242,7 +242,7 @@ public class EventController {
      * Deletes an event.
      */
     @DeleteMapping("/{eventId}")
-    @PreAuthorize("hasRole('MANAGER')")
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('MANAGER')")
     @Operation(summary = "Delete event", description = "Permanently deletes an event")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "204", description = "Event deleted successfully"),
