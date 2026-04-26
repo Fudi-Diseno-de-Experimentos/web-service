@@ -12,9 +12,12 @@ import synera.centralis.api.iam.domain.model.aggregates.User;
 import synera.centralis.api.iam.domain.model.commands.SignInCommand;
 import synera.centralis.api.iam.domain.model.commands.SignUpCommand;
 import synera.centralis.api.iam.domain.model.commands.UpdateUserCommand;
+import synera.centralis.api.iam.domain.model.commands.AssignUserToCompanyCommand;
 import synera.centralis.api.iam.domain.services.UserCommandService;
 import synera.centralis.api.iam.infrastructure.persistence.jpa.repositories.RoleRepository;
 import synera.centralis.api.iam.infrastructure.persistence.jpa.repositories.UserRepository;
+import synera.centralis.api.shared.domain.events.UserAssignedToCompanyEvent;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * User command service implementation
@@ -31,13 +34,15 @@ public class UserCommandServiceImpl implements UserCommandService {
     private final TokenService tokenService;
     private final RoleRepository roleRepository;
     private final ExternalProfileService externalProfileService;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public UserCommandServiceImpl(UserRepository userRepository, HashingService hashingService, TokenService tokenService, RoleRepository roleRepository, ExternalProfileService externalProfileService) {
+    public UserCommandServiceImpl(UserRepository userRepository, HashingService hashingService, TokenService tokenService, RoleRepository roleRepository, ExternalProfileService externalProfileService, ApplicationEventPublisher eventPublisher) {
         this.userRepository = userRepository;
         this.hashingService = hashingService;
         this.tokenService = tokenService;
         this.roleRepository = roleRepository;
         this.externalProfileService = externalProfileService;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -128,6 +133,26 @@ public class UserCommandServiceImpl implements UserCommandService {
         existingUser.setPassword(hashedPassword);
         
         var updatedUser = userRepository.save(existingUser);
+        return Optional.of(updatedUser);
+    }
+
+    @Override
+    public Optional<User> handle(AssignUserToCompanyCommand command) {
+        var user = userRepository.findById(command.userId());
+        if (user.isEmpty())
+            throw new RuntimeException("User not found");
+
+        var existingUser = user.get();
+        existingUser.setCompanyId(command.companyId());
+        
+        var updatedUser = userRepository.save(existingUser);
+
+        // Publish domain event so Profile Context can update its companyId
+        eventPublisher.publishEvent(UserAssignedToCompanyEvent.create(
+            updatedUser.getId(), 
+            command.companyId()
+        ));
+
         return Optional.of(updatedUser);
     }
 }

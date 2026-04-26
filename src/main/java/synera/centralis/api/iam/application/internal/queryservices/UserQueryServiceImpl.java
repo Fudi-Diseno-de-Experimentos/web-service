@@ -10,6 +10,9 @@ import synera.centralis.api.iam.infrastructure.persistence.jpa.repositories.User
 
 import org.springframework.stereotype.Service;
 
+import synera.centralis.api.iam.infrastructure.authorization.sfs.utils.SecurityUtils;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -37,7 +40,11 @@ public class UserQueryServiceImpl implements UserQueryService {
      */
     @Override
     public List<User> handle(GetAllUsersQuery query) {
-        return userRepository.findAll();
+        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
+        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
+            return userRepository.findAll();
+        }
+        return userRepository.findAllByCompanyId(currentCompanyId);
     }
 
     /**
@@ -48,7 +55,11 @@ public class UserQueryServiceImpl implements UserQueryService {
      */
     @Override
     public Optional<User> handle(GetUserByIdQuery query) {
-        return userRepository.findById(query.userId());
+        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
+        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
+            return userRepository.findById(query.userId());
+        }
+        return userRepository.findByIdAndCompanyId(query.userId(), currentCompanyId);
     }
 
     /**

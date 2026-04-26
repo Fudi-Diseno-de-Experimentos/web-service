@@ -5,6 +5,8 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import synera.centralis.api.iam.infrastructure.authorization.sfs.utils.SecurityUtils;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import lombok.extern.slf4j.Slf4j;
 import synera.centralis.api.event.domain.model.agreggates.Event;
@@ -33,28 +35,36 @@ public class EventQueryServiceImpl implements EventQueryService {
     @Transactional(readOnly = true)
     public Optional<Event> handle(GetEventByIdQuery query) {
         log.info("Getting event by ID: {}", query.eventId());
-        return eventRepository.findById(query.eventId());
+        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
+        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
+            return eventRepository.findById(query.eventId());
+        }
+        return eventRepository.findByIdAndCompanyId(query.eventId(), currentCompanyId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Event> handle(GetEventsByRecipientIdQuery query) {
         log.info("Getting events for recipient: {}", query.recipientId().userId());
-        return eventRepository.findByRecipientsContaining(query.recipientId());
+        return eventRepository.findByRecipientsContaining(query.recipientId()); // Recipients filter implies the user
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Event> handle(GetEventsByCreatorIdQuery query) {
         log.info("Getting events created by: {}", query.creatorId().userId());
-        return eventRepository.findByCreatedBy(query.creatorId());
+        return eventRepository.findByCreatedBy(query.creatorId()); // Creator filter implies the user
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Event> handle(GetAllEventsQuery query) {
         log.info("Getting all events");
-        return eventRepository.findAll();
+        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
+        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
+            return eventRepository.findAll();
+        }
+        return eventRepository.findAllByCompanyId(currentCompanyId);
     }
 }
 

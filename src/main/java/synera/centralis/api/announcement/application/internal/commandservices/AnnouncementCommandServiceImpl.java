@@ -1,6 +1,8 @@
 package synera.centralis.api.announcement.application.internal.commandservices;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import synera.centralis.api.iam.infrastructure.authorization.sfs.utils.SecurityUtils;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +52,11 @@ public class AnnouncementCommandServiceImpl implements AnnouncementCommandServic
                 command.priority(),
                 command.createdBy()
             );
+
+            CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
+            if (currentCompanyId != null) {
+                announcement.setCompanyId(currentCompanyId);
+            }
 
             var savedAnnouncement = announcementRepository.save(announcement);
             

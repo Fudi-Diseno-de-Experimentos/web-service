@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import synera.centralis.api.announcement.domain.model.valueobjects.Priority;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 import synera.centralis.api.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
 
 import java.util.UUID;
@@ -33,6 +34,10 @@ public class Announcement extends AuditableAbstractAggregateRoot<Announcement> {
 
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
+
+    @Embedded
+    private CompanyId companyId;
+    public void setCompanyId(CompanyId companyId) { this.companyId = companyId; }
 
     /**
      * Constructor for creating a new announcement

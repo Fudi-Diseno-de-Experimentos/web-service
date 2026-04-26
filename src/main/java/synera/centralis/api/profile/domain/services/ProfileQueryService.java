@@ -7,6 +7,7 @@ import synera.centralis.api.profile.domain.model.aggregates.Profile;
 import synera.centralis.api.profile.domain.model.queries.GetAllProfilesQuery;
 import synera.centralis.api.profile.domain.model.queries.GetProfileByIdQuery;
 import synera.centralis.api.profile.domain.model.queries.GetProfileByUserIdQuery;
+import synera.centralis.api.profile.domain.model.queries.GetProfilesByCompanyIdQuery;
 
 /**
  * Profile query service
@@ -34,4 +35,11 @@ public interface ProfileQueryService {
      * @return list of all profiles
      */
     List<Profile> handle(GetAllProfilesQuery query);
+
+    /**
+     * Handle get profiles by company ID query
+     * @param query the query containing the company ID
+     * @return list of profiles for that company
+     */
+    List<Profile> handle(GetProfilesByCompanyIdQuery query);
 }
