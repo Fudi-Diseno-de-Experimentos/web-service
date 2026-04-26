@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import synera.centralis.api.event.domain.model.valueobjects.UserId;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 import synera.centralis.api.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
 
 import java.time.LocalDateTime;
@@ -42,6 +43,10 @@ public class Event extends AuditableAbstractAggregateRoot<Event> {
     @CollectionTable(name = "event_recipients", joinColumns = @JoinColumn(name = "event_id"))
     @AttributeOverride(name = "userId", column = @Column(name = "user_id"))
     private Set<UserId> recipients = new HashSet<>();
+
+    @Embedded
+    private CompanyId companyId;
+    public void setCompanyId(CompanyId companyId) { this.companyId = companyId; }
 
     /**
      * Constructor for creating a new event.

@@ -16,6 +16,8 @@ import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
 import synera.centralis.api.iam.domain.model.entities.Role;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+import jakarta.persistence.Embedded;
 import synera.centralis.api.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
 
 /**
@@ -43,6 +45,15 @@ public class User extends AuditableAbstractAggregateRoot<User> {
                 joinColumns = @JoinColumn(name = "user_id"),
                 inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles;
+
+    @Embedded
+    private CompanyId companyId;
+    public String getUsername() { return username; }
+    public String getPassword() { return password; }
+    public void setPassword(String password) { this.password = password; }
+    public Set<Role> getRoles() { return roles; }
+    public CompanyId getCompanyId() { return companyId; }
+    public void setCompanyId(CompanyId companyId) { this.companyId = companyId; }
 
     public User() {
         this.roles = new HashSet<>();

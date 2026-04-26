@@ -1,5 +1,6 @@
 package synera.centralis.api.company.interfaces.rest;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping(value = "/api/v1/companies", produces = MediaType.APPLICATION_JSON_VALUE)
+@Tag(name = "Company", description = "Endpoints for managing companies")
 public class CompanyController {
 
     private final CompanyCommandService companyCommandService;

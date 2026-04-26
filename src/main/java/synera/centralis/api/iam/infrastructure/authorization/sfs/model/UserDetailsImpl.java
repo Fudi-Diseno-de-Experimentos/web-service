@@ -8,6 +8,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import synera.centralis.api.iam.domain.model.aggregates.User;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import java.util.Collection;
 import java.util.stream.Collectors;
@@ -28,17 +29,20 @@ public class UserDetailsImpl implements UserDetails {
     private final boolean credentialsNonExpired;
     private final boolean enabled;
     private final Collection<? extends GrantedAuthority> authorities;
+    private final CompanyId companyId;
 
     /**
      * This constructor initializes the UserDetailsImpl object.
      * @param username The username.
      * @param password The password.
      * @param authorities The authorities.
+     * @param companyId The companyId.
      */
-    public UserDetailsImpl(String username, String password, Collection<? extends GrantedAuthority> authorities) {
+    public UserDetailsImpl(String username, String password, Collection<? extends GrantedAuthority> authorities, CompanyId companyId) {
         this.username = username;
         this.password = password;
         this.authorities = authorities;
+        this.companyId = companyId;
         this.accountNonExpired = true;
         this.accountNonLocked = true;
         this.credentialsNonExpired = true;
@@ -58,7 +62,8 @@ public class UserDetailsImpl implements UserDetails {
         return new UserDetailsImpl(
                 user.getUsername(),
                 user.getPassword(),
-                authorities);
+                authorities,
+                user.getCompanyId());
     }
 
 }

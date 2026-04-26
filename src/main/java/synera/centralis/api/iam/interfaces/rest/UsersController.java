@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -98,6 +99,29 @@ public class UsersController {
     public ResponseEntity<UserResource> updateUser(@PathVariable UUID userId, @RequestBody UpdateUserResource updateUserResource) {
         var updateUserCommand = UpdateUserCommandFromResourceAssembler.toCommandFromResource(userId, updateUserResource);
         var updatedUser = userCommandService.handle(updateUserCommand);
+        if (updatedUser.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(updatedUser.get());
+        return ResponseEntity.ok(userResource);
+    }
+
+    /**
+     * Assigns a company to a user.
+     * @param userId the user id.
+     * @param assignCompanyResource the resource containing the company id.
+     * @return the updated user resource.
+     */
+    @Operation(summary = "Assign company to user", description = "Assigns an existing user to a company (Admin only usually)")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Company assigned"),
+            @ApiResponse(responseCode = "400", description = "Bad request"),
+            @ApiResponse(responseCode = "404", description = "User not found")})
+    @PutMapping("/{userId}/company")
+    public ResponseEntity<UserResource> assignCompany(@PathVariable UUID userId, @RequestBody synera.centralis.api.iam.interfaces.rest.resources.AssignCompanyResource assignCompanyResource) {
+        var command = new synera.centralis.api.iam.domain.model.commands.AssignUserToCompanyCommand(userId, new synera.centralis.api.shared.domain.model.valueobjects.CompanyId(assignCompanyResource.companyId()));
+        var updatedUser = userCommandService.handle(command);
         if (updatedUser.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }

@@ -9,6 +9,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
+import synera.centralis.api.iam.infrastructure.authorization.sfs.utils.SecurityUtils;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.extern.slf4j.Slf4j;
@@ -51,6 +53,11 @@ public class EventCommandServiceImpl implements EventCommandService {
                     command.recipientIds(),
                     command.createdBy()
             );
+
+            CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
+            if (currentCompanyId != null) {
+                event.setCompanyId(currentCompanyId);
+            }
 
             var savedEvent = eventRepository.save(event);
 

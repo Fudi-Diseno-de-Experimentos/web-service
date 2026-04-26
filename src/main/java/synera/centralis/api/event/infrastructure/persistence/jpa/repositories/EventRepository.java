@@ -9,6 +9,8 @@ import synera.centralis.api.event.domain.model.valueobjects.UserId;
 
 import java.util.List;
 import java.util.UUID;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+import java.util.Optional;
 
 /**
  * JPA Repository interface for Event aggregate.
@@ -16,6 +18,10 @@ import java.util.UUID;
  */
 @Repository
 public interface EventRepository extends JpaRepository<Event, UUID> {
+
+    List<Event> findAllByCompanyId(CompanyId companyId);
+
+    Optional<Event> findByIdAndCompanyId(UUID id, CompanyId companyId);
 
     /**
      * Find all events where the specified user is a recipient.

@@ -1,6 +1,8 @@
 package synera.centralis.api.announcement.application.internal.queryservices;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import synera.centralis.api.iam.infrastructure.authorization.sfs.utils.SecurityUtils;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import synera.centralis.api.announcement.domain.model.aggregates.Announcement;
@@ -28,24 +30,40 @@ public class AnnouncementQueryServiceImpl implements AnnouncementQueryService {
     @Override
     @Transactional(readOnly = true)
     public Optional<Announcement> handle(GetAnnouncementByIdQuery query) {
-        return announcementRepository.findById(query.announcementId());
+        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
+        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
+            return announcementRepository.findById(query.announcementId());
+        }
+        return announcementRepository.findByIdAndCompanyId(query.announcementId(), currentCompanyId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Announcement> handle(GetAllAnnouncementsQuery query) {
-        return announcementRepository.findAllByOrderByCreatedAtDesc();
+        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
+        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
+            return announcementRepository.findAllByOrderByCreatedAtDesc();
+        }
+        return announcementRepository.findAllByCompanyIdOrderByCreatedAtDesc(currentCompanyId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Announcement> handle(GetAnnouncementsByPriorityQuery query) {
-        return announcementRepository.findByPriorityLevel(query.priorityLevel());
+        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
+        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
+            return announcementRepository.findByPriorityLevel(query.priorityLevel());
+        }
+        return announcementRepository.findByPriorityLevelAndCompanyId(query.priorityLevel(), currentCompanyId);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Announcement> handle(GetAnnouncementsByCreatorQuery query) {
-        return announcementRepository.findByCreatedByOrderByCreatedAtDesc(query.createdBy());
+        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
+        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
+            return announcementRepository.findByCreatedByOrderByCreatedAtDesc(query.createdBy());
+        }
+        return announcementRepository.findByCreatedByAndCompanyIdOrderByCreatedAtDesc(query.createdBy(), currentCompanyId);
     }
 }

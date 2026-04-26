@@ -25,6 +25,8 @@ import jakarta.validation.Valid;
 import synera.centralis.api.profile.domain.model.queries.GetAllProfilesQuery;
 import synera.centralis.api.profile.domain.model.queries.GetProfileByIdQuery;
 import synera.centralis.api.profile.domain.model.queries.GetProfileByUserIdQuery;
+import synera.centralis.api.profile.domain.model.queries.GetProfilesByCompanyIdQuery;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 import synera.centralis.api.profile.domain.model.valueobjects.UserId;
 import synera.centralis.api.profile.domain.services.ProfileCommandService;
 import synera.centralis.api.profile.domain.services.ProfileQueryService;
@@ -137,6 +139,25 @@ public class ProfileController {
                 .map(ProfileResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
         
+        return ResponseEntity.ok(profileResources);
+    }
+
+    @GetMapping("/company/{companyId}")
+    @Operation(summary = "Get all profiles by company", description = "Retrieve all profiles for a given company ID")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Profiles retrieved successfully",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProfileResource.class)))
+    })
+    public ResponseEntity<List<ProfileResource>> getProfilesByCompanyId(
+            @Parameter(description = "Company ID", required = true)
+            @PathVariable UUID companyId) {
+        var query = new GetProfilesByCompanyIdQuery(new CompanyId(companyId));
+        var profiles = profileQueryService.handle(query);
+
+        var profileResources = profiles.stream()
+                .map(ProfileResourceFromEntityAssembler::toResourceFromEntity)
+                .toList();
+
         return ResponseEntity.ok(profileResources);
     }
 
