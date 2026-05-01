@@ -13,6 +13,7 @@ import lombok.Getter;
 import lombok.Setter;
 import synera.centralis.api.profile.domain.model.valueobjects.Department;
 import synera.centralis.api.profile.domain.model.valueobjects.Position;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 import synera.centralis.api.profile.domain.model.valueobjects.UserId;
 import synera.centralis.api.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
 
@@ -58,6 +59,9 @@ public class Profile extends AuditableAbstractAggregateRoot<Profile> {
     @NotNull
     @Column(name = "department")
     private Department department;
+
+    @Embedded
+    private CompanyId companyId;
 
     public Profile() {
     }

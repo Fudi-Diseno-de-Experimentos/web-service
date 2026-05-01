@@ -2,6 +2,8 @@ package synera.centralis.api.profile.infrastructure.persistence.jpa.repositories
 
 import java.util.Optional;
 import java.util.UUID;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -15,6 +17,10 @@ import synera.centralis.api.profile.domain.model.valueobjects.UserId;
  */
 @Repository
 public interface ProfileRepository extends JpaRepository<Profile, UUID> {
+
+    List<Profile> findAllByCompanyId(CompanyId companyId);
+
+    Optional<Profile> findByIdAndCompanyId(UUID id, CompanyId companyId);
     
     /**
      * Find profile by user ID

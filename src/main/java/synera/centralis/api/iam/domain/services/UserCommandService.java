@@ -9,6 +9,7 @@ import synera.centralis.api.iam.domain.model.aggregates.User;
 import synera.centralis.api.iam.domain.model.commands.SignInCommand;
 import synera.centralis.api.iam.domain.model.commands.SignUpCommand;
 import synera.centralis.api.iam.domain.model.commands.UpdateUserCommand;
+import synera.centralis.api.iam.domain.model.commands.AssignUserToCompanyCommand;
 
 /**
  * User command service
@@ -37,4 +38,11 @@ public interface UserCommandService {
      * @return an {@link Optional} of {@link User} entity
      */
     Optional<User> handle(UpdateUserCommand command);
+
+    /**
+     * Handle assign user to company command
+     * @param command the {@link AssignUserToCompanyCommand} command
+     * @return an {@link Optional} of {@link User} entity
+     */
+    Optional<User> handle(AssignUserToCompanyCommand command);
 }
