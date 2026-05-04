@@ -38,9 +38,7 @@ public class ProfileCommandServiceImpl implements ProfileCommandService {
             command.firstName(),
             command.lastName(),
             command.email(),
-            command.avatarUrl(),
-            command.position(),
-            command.department()
+            command.avatarUrl()
         );
 
         // Save and return
@@ -62,9 +60,7 @@ public class ProfileCommandServiceImpl implements ProfileCommandService {
             command.firstName(),
             command.lastName(),
             command.email(),
-            command.avatarUrl(),
-            command.position(),
-            command.department()
+            command.avatarUrl()
         );
 
         // Save and return

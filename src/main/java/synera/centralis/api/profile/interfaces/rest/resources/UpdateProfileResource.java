@@ -3,10 +3,7 @@ package synera.centralis.api.profile.interfaces.rest.resources;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import synera.centralis.api.profile.domain.model.valueobjects.Department;
-import synera.centralis.api.profile.domain.model.valueobjects.Position;
 
 /**
  * Update profile resource
@@ -32,14 +29,6 @@ public record UpdateProfileResource(
 
     @Schema(description = "Avatar URL", example = "https://i.pinimg.com/736x/27/04/39/2704399f46a1ac9a1d353e59a91dfe19.jpg")
     @Size(max = 255, message = "Avatar URL must not exceed 255 characters")
-    String avatarUrl,
-
-    @Schema(description = "Position", example = "EMPLOYEE", required = true)
-    @NotNull(message = "Position cannot be null")
-    Position position,
-
-    @Schema(description = "Department", example = "OTHER", required = true)
-    @NotNull(message = "Department cannot be null")
-    Department department
+    String avatarUrl
 ) {
 }

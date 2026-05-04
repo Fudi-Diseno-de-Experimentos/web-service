@@ -9,12 +9,12 @@ import java.util.UUID;
  */
 public class ProfileCreatedEvent {
     private final UUID profileId;
-    private final Long userId;
+    private final UUID userId;
     private final String firstName;
     private final String lastName;
     private final Instant occurredOn;
 
-    public ProfileCreatedEvent(UUID profileId, Long userId, String firstName, String lastName) {
+    public ProfileCreatedEvent(UUID profileId, UUID userId, String firstName, String lastName) {
         this.profileId = profileId;
         this.userId = userId;
         this.firstName = firstName;
@@ -26,7 +26,7 @@ public class ProfileCreatedEvent {
         return profileId;
     }
 
-    public Long getUserId() {
+    public UUID getUserId() {
         return userId;
     }
 

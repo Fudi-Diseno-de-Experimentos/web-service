@@ -19,9 +19,7 @@ public class CreateProfileCommandFromResourceAssembler {
                 resource.firstName(),
                 resource.lastName(),
                 resource.email(),
-                resource.avatarUrl(),
-                resource.position(),
-                resource.department()
+                resource.avatarUrl()
         );
     }
 }

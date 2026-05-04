@@ -98,7 +98,8 @@ public class UserCommandServiceImpl implements UserCommandService {
                 savedUser.getId().toString(), // Convert UUID to String
                 command.firstName(),
                 command.lastName(),
-                command.email()
+                command.email(),
+                    "https://i.pinimg.com/736x/e5/c3/71/e5c3714665be7be1d1f69fca7dff0965.jpg"
             );
 
             if (profileCreated.isEmpty()) {

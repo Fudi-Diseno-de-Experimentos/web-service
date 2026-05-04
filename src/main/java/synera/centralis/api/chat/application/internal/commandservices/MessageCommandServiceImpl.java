@@ -12,7 +12,6 @@ import synera.centralis.api.chat.domain.services.MessageCommandService;
 import synera.centralis.api.chat.infrastructure.persistence.jpa.repositories.GroupRepository;
 import synera.centralis.api.chat.infrastructure.persistence.jpa.repositories.MessageRepository;
 import synera.centralis.api.shared.domain.events.MessageSentInGroupEvent;
-import synera.centralis.api.shared.infrastructure.services.SseService;
 import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
 
 import java.time.Instant;
@@ -32,18 +31,15 @@ public class MessageCommandServiceImpl implements MessageCommandService {
     private final MessageRepository messageRepository;
     private final GroupRepository groupRepository;
     private final ApplicationEventPublisher eventPublisher;
-    private final SseService sseService;
     private final IamContextFacade iamContextFacade;
 
     public MessageCommandServiceImpl(MessageRepository messageRepository, 
                                    GroupRepository groupRepository,
                                    ApplicationEventPublisher eventPublisher,
-                                   SseService sseService,
                                    IamContextFacade iamContextFacade) {
         this.messageRepository = messageRepository;
         this.groupRepository = groupRepository;
         this.eventPublisher = eventPublisher;
-        this.sseService = sseService;
         this.iamContextFacade = iamContextFacade;
     }
 
@@ -87,33 +83,6 @@ public class MessageCommandServiceImpl implements MessageCommandService {
             );
             
             eventPublisher.publishEvent(event);
-            
-            // Send real-time message via SSE
-            try {
-                String senderUsername = iamContextFacade.fetchUsernameByUserId(savedMessage.getSenderId().userId());
-                if (senderUsername == null || senderUsername.isEmpty()) {
-                    senderUsername = "Unknown";
-                }
-                
-                Map<String, Object> sseEventData = Map.of(
-                        "messageId", savedMessage.getMessageId().toString(),
-                        "senderId", savedMessage.getSenderId().userId().toString(),
-                        "senderUsername", senderUsername,
-                        "body", savedMessage.getBody(),
-                        "groupId", savedMessage.getGroupId().toString(),
-                        "sentAt", Instant.now().toString(),
-                        "type", "message_created"
-                );
-                
-                sseService.sendToGroup(savedMessage.getGroupId().toString(), "message_created", sseEventData);
-                
-                log.info("📡 SSE: Message broadcasted to group {} - MessageID: {}", 
-                        savedMessage.getGroupId(), savedMessage.getMessageId());
-                
-            } catch (Exception e) {
-                log.warn("⚠️ SSE: Failed to broadcast message via SSE: {}", e.getMessage());
-                // Continue execution even if SSE broadcast fails
-            }
             
             log.info("Successfully created message with ID: {}", savedMessage.getMessageId());
             return Optional.of(savedMessage);

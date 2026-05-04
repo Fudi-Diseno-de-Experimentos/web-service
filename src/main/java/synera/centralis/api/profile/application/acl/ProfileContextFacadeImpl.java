@@ -3,8 +3,6 @@ package synera.centralis.api.profile.application.acl;
 import org.springframework.stereotype.Service;
 
 import synera.centralis.api.profile.domain.model.commands.CreateProfileCommand;
-import synera.centralis.api.profile.domain.model.valueobjects.Department;
-import synera.centralis.api.profile.domain.model.valueobjects.Position;
 import synera.centralis.api.profile.domain.model.valueobjects.UserId;
 import synera.centralis.api.profile.domain.services.ProfileCommandService;
 import synera.centralis.api.profile.infrastructure.persistence.jpa.repositories.ProfileRepository;
@@ -29,19 +27,17 @@ public class ProfileContextFacadeImpl implements ProfileContextFacade {
     }
 
     @Override
-    public Long createBasicProfile(String userIdStr, String firstName, String lastName, String email) {
+    public Long createBasicProfile(String userIdStr, String firstName, String lastName, String email, String url_image) {
         try {
             UUID userId = UUID.fromString(userIdStr);
             
-            // Create basic profile with default values
+            // Create basic profile
             var command = new CreateProfileCommand(
                 userId,
                 firstName,
                 lastName,
                 email,
-                null, // No avatar URL initially
-                Position.EMPLOYEE, // Default position
-                Department.IT // Default department - you can change this
+                url_image
             );
 
             var profile = profileCommandService.handle(command);
@@ -77,9 +73,7 @@ public class ProfileContextFacadeImpl implements ProfileContextFacade {
                 return java.util.Optional.of(new ProfileContextFacade.ProfileData(
                     p.getFirstName(),
                     p.getLastName(),
-                    p.getEmail(),
-                    p.getDepartment().toString(), // Convert enum to string
-                    p.getPosition().toString()   // Convert enum to string
+                    p.getEmail()
                 ));
             }
             

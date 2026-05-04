@@ -51,9 +51,7 @@ public class ExternalUserService {
                     return Optional.of(new ExternalUserProfile(
                         userId.value(),
                         displayName, // Real full name from Profile context
-                        profile.email(), // Real email from Profile context
-                        profile.department(), // Real department from Profile context
-                        profile.position() // Real position from Profile context
+                        profile.email() // Real email from Profile context
                     ));
                 }
             } else {
@@ -63,9 +61,7 @@ public class ExternalUserService {
                     return Optional.of(new ExternalUserProfile(
                         userId.value(),
                         username,
-                        username + "@empresa.com",
-                        "Sin Departamento",
-                        "Usuario"
+                        username + "@empresa.com"
                     ));
                 }
             }
@@ -133,37 +129,6 @@ public class ExternalUserService {
     }
 
     /**
-     * Get users by department (for department breakdown)
-     * @param department Department name
-     * @return List of user profiles in the department
-     */
-    public List<ExternalUserProfile> getUsersByDepartment(String department) {
-        try {
-            // TODO: Implement when ProfileContextFacade has department queries
-            // Return empty list for now as this should query Profile context, not IAM
-            return List.of();
-        } catch (Exception e) {
-            // Fallback to mock users for each department
-            return getMockUsersByDepartment(department);
-        }
-    }
-
-    /**
-     * Get department statistics (for pie chart breakdowns)
-     * @return Map of department name to user count
-     */
-    public Map<String, Long> getDepartmentStatistics() {
-        try {
-            // TODO: Implement when ProfileContextFacade has department statistics
-            // Return mock data for now as this should query Profile context, not IAM
-            return getMockDepartmentStatistics();
-        } catch (Exception e) {
-            // Fallback department distribution
-            return getMockDepartmentStatistics();
-        }
-    }
-
-    /**
      * Get top active users based on recent activity
      * @param limit Number of top users to return
      * @return List of most active user profiles
@@ -184,27 +149,8 @@ public class ExternalUserService {
         return Optional.of(new ExternalUserProfile(
             userId.value(),
             "Mock User " + userId.value().toString().substring(0, 8),
-            "user." + userId.value().toString().substring(0, 8) + "@empresa.com",
-            "Tecnología", // Mock department
-            "Desarrollador" // Mock position
+            "user." + userId.value().toString().substring(0, 8) + "@empresa.com"
         ));
-    }
-
-    private List<ExternalUserProfile> getMockUsersByDepartment(String department) {
-        return List.of(
-            new ExternalUserProfile(UUID.randomUUID(), "User 1", "user1@empresa.com", department, "Employee"),
-            new ExternalUserProfile(UUID.randomUUID(), "User 2", "user2@empresa.com", department, "Manager")
-        );
-    }
-
-    private Map<String, Long> getMockDepartmentStatistics() {
-        return Map.of(
-            "Recursos Humanos", 25L,
-            "Finanzas", 30L,
-            "Tecnología", 40L,
-            "Marketing", 35L,
-            "Operaciones", 20L
-        );
     }
 
     private List<ExternalUserProfile> getMockTopUsers(int limit) {
@@ -212,23 +158,17 @@ public class ExternalUserService {
             new ExternalUserProfile(
                 UUID.randomUUID(),
                 "Juan Pérez",
-                "juan.perez@empresa.com",
-                "Recursos Humanos",
-                "Especialista RRHH"
+                "juan.perez@empresa.com"
             ),
             new ExternalUserProfile(
                 UUID.randomUUID(),
                 "María García",
-                "maria.garcia@empresa.com",
-                "Finanzas",
-                "Analista Financiero"
+                "maria.garcia@empresa.com"
             ),
             new ExternalUserProfile(
                 UUID.randomUUID(),
                 "Carlos López",
-                "carlos.lopez@empresa.com",
-                "Tecnología",
-                "Desarrollador Senior"
+                "carlos.lopez@empresa.com"
             )
         ).subList(0, Math.min(limit, 3));
     }

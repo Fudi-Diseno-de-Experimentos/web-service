@@ -2,9 +2,6 @@ package synera.centralis.api.profile.domain.model.commands;
 
 import java.util.UUID;
 
-import synera.centralis.api.profile.domain.model.valueobjects.Department;
-import synera.centralis.api.profile.domain.model.valueobjects.Position;
-
 /**
  * Update profile command
  * Command to update an existing user profile
@@ -14,9 +11,7 @@ public record UpdateProfileCommand(
     String firstName,
     String lastName,
     String email,
-    String avatarUrl,
-    Position position,
-    Department department
+    String avatarUrl
 ) {
     public UpdateProfileCommand {
         if (profileId == null) {
@@ -42,12 +37,6 @@ public record UpdateProfileCommand(
         }
         if (avatarUrl != null && avatarUrl.length() > 255) {
             throw new IllegalArgumentException("Avatar URL must not exceed 255 characters");
-        }
-        if (position == null) {
-            throw new IllegalArgumentException("Position cannot be null");
-        }
-        if (department == null) {
-            throw new IllegalArgumentException("Department cannot be null");
         }
     }
 }

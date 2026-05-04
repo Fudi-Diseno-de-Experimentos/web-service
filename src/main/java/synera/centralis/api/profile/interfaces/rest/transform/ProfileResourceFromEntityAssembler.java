@@ -21,9 +21,7 @@ public class ProfileResourceFromEntityAssembler {
                 entity.getLastName(),
                 entity.getEmail(),
                 entity.getFullName(),
-                entity.getAvatarUrl(),
-                entity.getPosition(),
-                entity.getDepartment()
+                entity.getAvatarUrl()
         );
     }
 }

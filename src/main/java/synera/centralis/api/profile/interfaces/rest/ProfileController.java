@@ -79,6 +79,40 @@ public class ProfileController {
         return new ResponseEntity<>(profileResource, HttpStatus.CREATED);
     }
 
+    @GetMapping("/me")
+    @Operation(summary = "Get current user profile", description = "Retrieve the profile of the currently authenticated user")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Profile found",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProfileResource.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized",
+                content = @Content),
+        @ApiResponse(responseCode = "404", description = "Profile not found",
+                content = @Content)
+    })
+    public ResponseEntity<ProfileResource> getCurrentUserProfile() {
+        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        UUID userId;
+        try {
+            userId = UUID.fromString(authentication.getName());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        var query = new GetProfileByUserIdQuery(new UserId(userId));
+        var profile = profileQueryService.handle(query);
+        
+        if (profile.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        var profileResource = ProfileResourceFromEntityAssembler.toResourceFromEntity(profile.get());
+        return ResponseEntity.ok(profileResource);
+    }
+
     @GetMapping("/{profileId}")
     @Operation(summary = "Get profile by ID", description = "Retrieve a profile by its ID")
     @ApiResponses(value = {
