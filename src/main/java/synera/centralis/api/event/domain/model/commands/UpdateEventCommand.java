@@ -4,6 +4,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+
 /**
  * Command to update an existing event.
  */
@@ -13,7 +15,8 @@ public record UpdateEventCommand(
         String description,
         LocalDateTime date,
         String location,
-        List<UUID> recipientIds
+        List<UUID> recipientIds,
+        CompanyId companyId
 ) {
     public UpdateEventCommand {
         if (eventId == null) {

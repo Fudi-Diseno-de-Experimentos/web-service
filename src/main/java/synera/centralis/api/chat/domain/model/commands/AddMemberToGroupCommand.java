@@ -4,13 +4,16 @@ import synera.centralis.api.chat.domain.model.valueobjects.UserId;
 
 import java.util.UUID;
 
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+
 /**
  * Command to add a new member to a group.
  * Contains the group ID and the user to be added.
  */
 public record AddMemberToGroupCommand(
         UUID groupId,
-        UserId memberToAdd
+        UserId memberToAdd,
+        CompanyId companyId
 ) {
     public AddMemberToGroupCommand {
         if (groupId == null) {
@@ -18,6 +21,9 @@ public record AddMemberToGroupCommand(
         }
         if (memberToAdd == null) {
             throw new IllegalArgumentException("Member to add cannot be null");
+        }
+        if (companyId == null) {
+            throw new IllegalArgumentException("Company ID cannot be null");
         }
     }
 }

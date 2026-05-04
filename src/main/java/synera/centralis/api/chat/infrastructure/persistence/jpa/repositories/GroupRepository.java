@@ -8,6 +8,7 @@ import synera.centralis.api.chat.domain.model.aggregates.Group;
 import synera.centralis.api.chat.domain.model.valueobjects.UserId;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
@@ -18,6 +19,9 @@ import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
  */
 @Repository
 public interface GroupRepository extends JpaRepository<Group, UUID> {
+
+    Optional<Group> findByIdAndCompanyId(UUID id, CompanyId companyId);
+    List<Group> findAllByCompanyId(CompanyId companyId);
 
     /**
      * Find all groups where the specified user is a member.

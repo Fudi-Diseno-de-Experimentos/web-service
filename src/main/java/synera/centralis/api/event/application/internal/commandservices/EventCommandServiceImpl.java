@@ -54,10 +54,7 @@ public class EventCommandServiceImpl implements EventCommandService {
                     command.createdBy()
             );
 
-            CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
-            if (currentCompanyId != null) {
-                event.setCompanyId(currentCompanyId);
-            }
+            event.setCompanyId(command.companyId());
 
             var savedEvent = eventRepository.save(event);
 
@@ -109,7 +106,7 @@ public class EventCommandServiceImpl implements EventCommandService {
         try {
             log.info("Updating event with ID: {}", command.eventId());
 
-            var eventOpt = eventRepository.findById(command.eventId());
+            var eventOpt = eventRepository.findByIdAndCompanyId(command.eventId(), command.companyId());
 
             if (eventOpt.isEmpty()) {
                 log.warn("Event not found with ID: {}", command.eventId());
@@ -145,7 +142,7 @@ public class EventCommandServiceImpl implements EventCommandService {
         try {
             log.info("Deleting event with ID: {}", command.eventId());
 
-            if (!eventRepository.existsById(command.eventId())) {
+            if (!eventRepository.existsByIdAndCompanyId(command.eventId(), command.companyId())) {
                 log.warn("Event not found with ID: {}", command.eventId());
                 return Optional.empty();
             }

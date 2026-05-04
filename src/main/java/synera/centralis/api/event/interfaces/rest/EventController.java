@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import synera.centralis.api.event.domain.model.agreggates.Event;
 import synera.centralis.api.event.domain.model.commands.DeleteEventCommand;
@@ -23,6 +24,9 @@ import synera.centralis.api.event.interfaces.rest.resources.*;
 import synera.centralis.api.event.interfaces.rest.transform.EventResourceFromEntityAssembler;
 
 import jakarta.validation.Valid;
+import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,10 +43,22 @@ public class EventController {
 
     private final EventCommandService eventCommandService;
     private final EventQueryService eventQueryService;
+    private final IamContextFacade iamContextFacade;
 
-    public EventController(EventCommandService eventCommandService, EventQueryService eventQueryService) {
+    public EventController(EventCommandService eventCommandService, EventQueryService eventQueryService, IamContextFacade iamContextFacade) {
         this.eventCommandService = eventCommandService;
         this.eventQueryService = eventQueryService;
+        this.iamContextFacade = iamContextFacade;
+    }
+
+    private CompanyId getCurrentCompanyId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            return null;
+        }
+        String username = authentication.getName();
+        java.util.UUID companyId = iamContextFacade.fetchCompanyIdByUsername(username);
+        return companyId != null ? new CompanyId(companyId) : null;
     }
 
     /**
@@ -73,13 +89,17 @@ public class EventController {
                 createdByUuid = resource.createdBy();
             }
 
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
             var createEventCommand = new CreateEventCommand(
                     resource.title(),
                     resource.description(),
                     resource.date(),
                     resource.location(),
                     resource.recipientIds(),
-                    new UserId(createdByUuid)
+                    new UserId(createdByUuid),
+                    companyId
             );
 
             Optional<Event> event = eventCommandService.handle(createEventCommand);
@@ -108,7 +128,10 @@ public class EventController {
     public ResponseEntity<EventResource> getEventById(
             @Parameter(description = "Event ID", required = true) @PathVariable UUID eventId) {
         try {
-            var getEventByIdQuery = new GetEventByIdQuery(eventId);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var getEventByIdQuery = new GetEventByIdQuery(eventId, companyId);
             Optional<Event> event = eventQueryService.handle(getEventByIdQuery);
 
             if (event.isPresent()) {
@@ -136,23 +159,26 @@ public class EventController {
             @Parameter(description = "User ID to filter events (optional)") @RequestParam(required = false) UUID userId,
             @Parameter(description = "Filter type: 'recipient' or 'creator' (optional)") @RequestParam(required = false) String filterType) {
         try {
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
             List<Event> events;
 
             if (userId != null && "recipient".equalsIgnoreCase(filterType)) {
                 // Get events where user is a recipient
-                var query = new GetEventsByRecipientIdQuery(new UserId(userId));
+                var query = new GetEventsByRecipientIdQuery(new UserId(userId), companyId);
                 events = eventQueryService.handle(query);
             } else if (userId != null && "creator".equalsIgnoreCase(filterType)) {
                 // Get events created by user
-                var query = new GetEventsByCreatorIdQuery(new UserId(userId));
+                var query = new GetEventsByCreatorIdQuery(new UserId(userId), companyId);
                 events = eventQueryService.handle(query);
             } else if (userId != null) {
                 // Default: get events where user is a recipient
-                var query = new GetEventsByRecipientIdQuery(new UserId(userId));
+                var query = new GetEventsByRecipientIdQuery(new UserId(userId), companyId);
                 events = eventQueryService.handle(query);
             } else {
                 // Get all events
-                var query = new GetAllEventsQuery();
+                var query = new GetAllEventsQuery(companyId);
                 events = eventQueryService.handle(query);
             }
 
@@ -179,15 +205,18 @@ public class EventController {
     public ResponseEntity<List<EventResource>> getEventsForCalendar(
             @Parameter(description = "User ID to filter events (optional)") @RequestParam(required = false) UUID userId) {
         try {
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
             List<Event> events;
 
             if (userId != null) {
                 // Get events where user is a recipient (employees see their events)
-                var query = new GetEventsByRecipientIdQuery(new UserId(userId));
+                var query = new GetEventsByRecipientIdQuery(new UserId(userId), companyId);
                 events = eventQueryService.handle(query);
             } else {
                 // Get all events
-                var query = new GetAllEventsQuery();
+                var query = new GetAllEventsQuery(companyId);
                 events = eventQueryService.handle(query);
             }
 
@@ -217,13 +246,17 @@ public class EventController {
             @Parameter(description = "Event ID", required = true) @PathVariable UUID eventId,
             @Valid @RequestBody UpdateEventResource resource) {
         try {
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
             var updateEventCommand = new UpdateEventCommand(
                     eventId,
                     resource.title(),
                     resource.description(),
                     resource.date(),
                     resource.location(),
-                    resource.recipientIds()
+                    resource.recipientIds(),
+                    companyId
             );
             Optional<Event> updatedEvent = eventCommandService.handle(updateEventCommand);
 
@@ -252,7 +285,10 @@ public class EventController {
     public ResponseEntity<Void> deleteEvent(
             @Parameter(description = "Event ID", required = true) @PathVariable UUID eventId) {
         try {
-            var deleteEventCommand = new DeleteEventCommand(eventId);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var deleteEventCommand = new DeleteEventCommand(eventId, companyId);
             Optional<UUID> deletedEventId = eventCommandService.handle(deleteEventCommand);
 
             if (deletedEventId.isPresent()) {

@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import synera.centralis.api.chat.domain.model.entities.ChatImage;
 import synera.centralis.api.chat.domain.model.commands.CreateChatImageCommand;
@@ -22,6 +23,9 @@ import synera.centralis.api.chat.interfaces.rest.transform.CreateChatImageComman
 import synera.centralis.api.chat.interfaces.rest.transform.ChatImageResourceFromEntityAssembler;
 
 import jakarta.validation.Valid;
+import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -38,11 +42,24 @@ public class ChatImageController {
 
     private final ChatImageCommandService chatImageCommandService;
     private final ChatImageQueryService chatImageQueryService;
+    private final IamContextFacade iamContextFacade;
 
     public ChatImageController(ChatImageCommandService chatImageCommandService, 
-                              ChatImageQueryService chatImageQueryService) {
+                              ChatImageQueryService chatImageQueryService,
+                              IamContextFacade iamContextFacade) {
         this.chatImageCommandService = chatImageCommandService;
         this.chatImageQueryService = chatImageQueryService;
+        this.iamContextFacade = iamContextFacade;
+    }
+
+    private CompanyId getCurrentCompanyId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            return null;
+        }
+        String username = authentication.getName();
+        java.util.UUID companyId = iamContextFacade.fetchCompanyIdByUsername(username);
+        return companyId != null ? new CompanyId(companyId) : null;
     }
 
     /**
@@ -122,7 +139,10 @@ public class ChatImageController {
     public ResponseEntity<List<ChatImageResource>> getImagesByGroupId(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
         try {
-            var getImagesQuery = new GetChatImagesByGroupIdQuery(groupId);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var getImagesQuery = new GetChatImagesByGroupIdQuery(groupId, companyId);
             List<ChatImage> chatImages = chatImageQueryService.handle(getImagesQuery);
             
             List<ChatImageResource> chatImageResources = chatImages.stream()

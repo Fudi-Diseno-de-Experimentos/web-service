@@ -3,6 +3,7 @@ package synera.centralis.api.chat.interfaces.rest.transform;
 import synera.centralis.api.chat.domain.model.commands.RemoveMemberFromGroupCommand;
 import synera.centralis.api.chat.interfaces.rest.resources.RemoveMemberFromGroupResource;
 import synera.centralis.api.chat.domain.model.valueobjects.UserId;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import java.util.UUID;
 
@@ -16,12 +17,14 @@ public class RemoveMemberFromGroupCommandFromResourceAssembler {
      * Transforms a RemoveMemberFromGroupResource to a RemoveMemberFromGroupCommand.
      * @param groupId the ID of the group to remove member from
      * @param resource the resource containing member data
+     * @param companyId the ID of the company
      * @return the corresponding domain command
      */
-    public static RemoveMemberFromGroupCommand toCommandFromResource(UUID groupId, RemoveMemberFromGroupResource resource) {
+    public static RemoveMemberFromGroupCommand toCommandFromResource(UUID groupId, RemoveMemberFromGroupResource resource, CompanyId companyId) {
         return new RemoveMemberFromGroupCommand(
                 groupId,
-                new UserId(resource.userId())
+                new UserId(resource.userId()),
+                companyId
         );
     }
 }

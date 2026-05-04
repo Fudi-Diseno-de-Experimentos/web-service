@@ -55,6 +55,8 @@ public class GroupCommandServiceImpl implements GroupCommandService {
                     command.createdBy()
             );
 
+            group.setCompanyId(command.companyId());
+
             var savedGroup = groupRepository.save(group);
             
             log.info("=== GROUP CREATED ===");
@@ -100,7 +102,7 @@ public class GroupCommandServiceImpl implements GroupCommandService {
         try {
             log.info("Updating group with ID: {}", command.groupId());
             
-            var groupOptional = groupRepository.findById(command.groupId());
+            var groupOptional = groupRepository.findByIdAndCompanyId(command.groupId(), command.companyId());
             if (groupOptional.isEmpty()) {
                 log.warn("Group not found with ID: {}", command.groupId());
                 return Optional.empty();
@@ -126,7 +128,7 @@ public class GroupCommandServiceImpl implements GroupCommandService {
         try {
             log.info("Updating visibility for group with ID: {}", command.groupId());
             
-            var groupOptional = groupRepository.findById(command.groupId());
+            var groupOptional = groupRepository.findByIdAndCompanyId(command.groupId(), command.companyId());
             if (groupOptional.isEmpty()) {
                 log.warn("Group not found with ID: {}", command.groupId());
                 return Optional.empty();
@@ -152,7 +154,7 @@ public class GroupCommandServiceImpl implements GroupCommandService {
         try {
             log.info("Adding member {} to group {}", command.memberToAdd().userId(), command.groupId());
             
-            var groupOptional = groupRepository.findById(command.groupId());
+            var groupOptional = groupRepository.findByIdAndCompanyId(command.groupId(), command.companyId());
             if (groupOptional.isEmpty()) {
                 log.warn("Group not found with ID: {}", command.groupId());
                 return Optional.empty();
@@ -178,7 +180,7 @@ public class GroupCommandServiceImpl implements GroupCommandService {
         try {
             log.info("Removing member {} from group {}", command.memberToRemove().userId(), command.groupId());
             
-            var groupOptional = groupRepository.findById(command.groupId());
+            var groupOptional = groupRepository.findByIdAndCompanyId(command.groupId(), command.companyId());
             if (groupOptional.isEmpty()) {
                 log.warn("Group not found with ID: {}", command.groupId());
                 return Optional.empty();
@@ -204,7 +206,7 @@ public class GroupCommandServiceImpl implements GroupCommandService {
         try {
             log.info("Deleting group with ID: {}", command.groupId());
             
-            if (!groupRepository.existsById(command.groupId())) {
+            if (!groupRepository.existsByIdAndCompanyId(command.groupId(), command.companyId())) {
                 log.warn("Group not found with ID: {}", command.groupId());
                 return Optional.empty();
             }

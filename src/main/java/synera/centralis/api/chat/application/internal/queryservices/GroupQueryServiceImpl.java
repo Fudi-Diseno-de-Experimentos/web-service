@@ -30,7 +30,7 @@ public class GroupQueryServiceImpl implements GroupQueryService {
     public Optional<Group> handle(GetGroupByIdQuery query) {
         try {
             log.debug("Retrieving group with ID: {}", query.groupId());
-            return groupRepository.findById(query.groupId());
+            return groupRepository.findByIdAndCompanyId(query.groupId(), query.companyId());
         } catch (Exception e) {
             log.error("Error retrieving group by ID: {}", e.getMessage(), e);
             return Optional.empty();
@@ -41,7 +41,7 @@ public class GroupQueryServiceImpl implements GroupQueryService {
     public List<Group> handle(GetGroupsByMemberIdQuery query) {
         try {
             log.debug("Retrieving groups for member: {}", query.memberId().userId());
-            return groupRepository.findByMembersContaining(query.memberId());
+            return groupRepository.findByMembersContainingAndCompanyId(query.memberId(), query.companyId());
         } catch (Exception e) {
             log.error("Error retrieving groups by member ID: {}", e.getMessage(), e);
             return List.of();
@@ -52,7 +52,7 @@ public class GroupQueryServiceImpl implements GroupQueryService {
     public List<Group> handle(GetAllGroupsQuery query) {
         try {
             log.debug("Retrieving all groups");
-            return groupRepository.findAll();
+            return groupRepository.findAllByCompanyId(query.companyId());
         } catch (Exception e) {
             log.error("Error retrieving all groups: {}", e.getMessage(), e);
             return List.of();

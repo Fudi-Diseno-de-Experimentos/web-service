@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import synera.centralis.api.chat.domain.model.entities.Message;
 import synera.centralis.api.chat.domain.model.commands.*;
@@ -19,6 +20,9 @@ import synera.centralis.api.chat.interfaces.rest.resources.*;
 import synera.centralis.api.chat.interfaces.rest.transform.*;
 
 import jakarta.validation.Valid;
+import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,10 +39,22 @@ public class MessageController {
 
     private final MessageCommandService messageCommandService;
     private final MessageQueryService messageQueryService;
+    private final IamContextFacade iamContextFacade;
 
-    public MessageController(MessageCommandService messageCommandService, MessageQueryService messageQueryService) {
+    public MessageController(MessageCommandService messageCommandService, MessageQueryService messageQueryService, synera.centralis.api.iam.interfaces.acl.IamContextFacade iamContextFacade) {
         this.messageCommandService = messageCommandService;
         this.messageQueryService = messageQueryService;
+        this.iamContextFacade = iamContextFacade;
+    }
+
+    private CompanyId getCurrentCompanyId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            return null;
+        }
+        String username = authentication.getName();
+        java.util.UUID companyId = iamContextFacade.fetchCompanyIdByUsername(username);
+        return companyId != null ? new CompanyId(companyId) : null;
     }
 
     /**
@@ -86,6 +102,9 @@ public class MessageController {
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Parameter(description = "Message ID", required = true) @PathVariable UUID messageId) {
         try {
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
             var getMessageByIdQuery = new GetMessageByIdQuery(messageId);
             Optional<Message> message = messageQueryService.handle(getMessageByIdQuery);
             
@@ -117,7 +136,10 @@ public class MessageController {
     public ResponseEntity<List<MessageResource>> getMessagesByGroupId(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
         try {
-            var getMessagesByGroupIdQuery = new GetMessagesByGroupIdQuery(groupId);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var getMessagesByGroupIdQuery = new GetMessagesByGroupIdQuery(groupId, companyId);
             List<Message> messages = messageQueryService.handle(getMessagesByGroupIdQuery);
             
             var messageResources = messages.stream()
@@ -176,6 +198,9 @@ public class MessageController {
             @Parameter(description = "Message ID", required = true) @PathVariable UUID messageId,
             @Valid @RequestBody UpdateMessageBodyResource resource) {
         try {
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
             // First verify the message belongs to the group
             var getMessageQuery = new GetMessageByIdQuery(messageId);
             Optional<Message> existingMessage = messageQueryService.handle(getMessageQuery);
@@ -218,6 +243,9 @@ public class MessageController {
             @Parameter(description = "Message ID", required = true) @PathVariable UUID messageId,
             @Valid @RequestBody UpdateMessageStatusResource resource) {
         try {
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
             // First verify the message belongs to the group
             var getMessageQuery = new GetMessageByIdQuery(messageId);
             Optional<Message> existingMessage = messageQueryService.handle(getMessageQuery);
@@ -256,6 +284,9 @@ public class MessageController {
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Parameter(description = "Message ID", required = true) @PathVariable UUID messageId) {
         try {
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
             // First verify the message belongs to the group
             var getMessageQuery = new GetMessageByIdQuery(messageId);
             Optional<Message> existingMessage = messageQueryService.handle(getMessageQuery);

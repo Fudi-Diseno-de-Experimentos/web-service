@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import synera.centralis.api.announcement.domain.model.commands.DeleteAnnouncementCommand;
 import synera.centralis.api.announcement.domain.model.queries.*;
@@ -24,6 +25,8 @@ import synera.centralis.api.announcement.interfaces.rest.resources.UpdateAnnounc
 import synera.centralis.api.announcement.interfaces.rest.transform.AnnouncementResourceFromEntityAssembler;
 import synera.centralis.api.announcement.interfaces.rest.transform.CreateAnnouncementCommandFromResourceAssembler;
 import synera.centralis.api.announcement.interfaces.rest.transform.UpdateAnnouncementCommandFromResourceAssembler;
+import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import java.util.UUID;
 
@@ -38,12 +41,25 @@ public class AnnouncementController {
 
     private final AnnouncementCommandService announcementCommandService;
     private final AnnouncementQueryService announcementQueryService;
+    private final IamContextFacade iamContextFacade;
 
     @Autowired
     public AnnouncementController(AnnouncementCommandService announcementCommandService,
-                                AnnouncementQueryService announcementQueryService) {
+                                AnnouncementQueryService announcementQueryService,
+                                IamContextFacade iamContextFacade) {
         this.announcementCommandService = announcementCommandService;
         this.announcementQueryService = announcementQueryService;
+        this.iamContextFacade = iamContextFacade;
+    }
+
+    private CompanyId getCurrentCompanyId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            return null;
+        }
+        String username = authentication.getName();
+        java.util.UUID companyId = iamContextFacade.fetchCompanyIdByUsername(username);
+        return companyId != null ? new CompanyId(companyId) : null;
     }
 
     @PostMapping
@@ -58,7 +74,9 @@ public class AnnouncementController {
     })
     public ResponseEntity<?> createAnnouncement(@Valid @RequestBody CreateAnnouncementResource resource) {
         try {
-            var command = CreateAnnouncementCommandFromResourceAssembler.toCommandFromResource(resource);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not associated with a company");
+            var command = CreateAnnouncementCommandFromResourceAssembler.toCommandFromResource(resource, companyId);
             var announcement = announcementCommandService.handle(command);
             
             if (announcement.isPresent()) {
@@ -82,7 +100,9 @@ public class AnnouncementController {
     })
     public ResponseEntity<?> getAnnouncementById(
             @Parameter(description = "Unique identifier of the announcement") @PathVariable UUID announcementId) {
-        var query = new GetAnnouncementByIdQuery(announcementId);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        var query = new GetAnnouncementByIdQuery(announcementId, companyId);
         var announcement = announcementQueryService.handle(query);
         
         if (announcement.isPresent()) {
@@ -99,8 +119,9 @@ public class AnnouncementController {
         @ApiResponse(responseCode = "200", description = "Announcements retrieved successfully")
     })
     public ResponseEntity<List<AnnouncementResource>> getAllAnnouncements() {
-        
-        var query = new GetAllAnnouncementsQuery();
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        var query = new GetAllAnnouncementsQuery(companyId);
         var announcements = announcementQueryService.handle(query);
         var resources = announcements.stream()
                 .map(AnnouncementResourceFromEntityAssembler::toResourceFromEntity)
@@ -119,8 +140,10 @@ public class AnnouncementController {
             @Parameter(description = "Priority level (NORMAL, HIGH, URGENT)") @PathVariable String priority) {
         
         try {
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not associated with a company");
             var priorityLevel = Priority.PriorityLevel.valueOf(priority.toUpperCase());
-            var query = new GetAnnouncementsByPriorityQuery(priorityLevel);
+            var query = new GetAnnouncementsByPriorityQuery(priorityLevel, companyId);
             
             var announcements = announcementQueryService.handle(query);
             var resources = announcements.stream()
@@ -140,8 +163,9 @@ public class AnnouncementController {
     })
     public ResponseEntity<List<AnnouncementResource>> getAnnouncementsByCreator(
             @Parameter(description = "ID of the user who created the announcements") @PathVariable UUID createdBy) {
-        
-        var query = new GetAnnouncementsByCreatorQuery(createdBy);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        var query = new GetAnnouncementsByCreatorQuery(createdBy, companyId);
         var announcements = announcementQueryService.handle(query);
         var resources = announcements.stream()
                 .map(AnnouncementResourceFromEntityAssembler::toResourceFromEntity)
@@ -163,7 +187,9 @@ public class AnnouncementController {
             @Valid @RequestBody UpdateAnnouncementResource resource) {
         
         try {
-            var command = UpdateAnnouncementCommandFromResourceAssembler.toCommandFromResource(announcementId, resource);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not associated with a company");
+            var command = UpdateAnnouncementCommandFromResourceAssembler.toCommandFromResource(announcementId, resource, companyId);
             var announcement = announcementCommandService.handle(command);
             
             if (announcement.isPresent()) {
@@ -185,8 +211,9 @@ public class AnnouncementController {
     })
     public ResponseEntity<Void> deleteAnnouncement(
             @Parameter(description = "Unique identifier of the announcement") @PathVariable UUID announcementId) {
-        
-        var command = new DeleteAnnouncementCommand(announcementId);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        var command = new DeleteAnnouncementCommand(announcementId, companyId);
         boolean deleted = announcementCommandService.handle(command);
         
         if (deleted) {

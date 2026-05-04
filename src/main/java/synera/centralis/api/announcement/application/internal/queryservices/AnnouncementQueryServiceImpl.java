@@ -30,40 +30,24 @@ public class AnnouncementQueryServiceImpl implements AnnouncementQueryService {
     @Override
     @Transactional(readOnly = true)
     public Optional<Announcement> handle(GetAnnouncementByIdQuery query) {
-        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
-        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
-            return announcementRepository.findById(query.announcementId());
-        }
-        return announcementRepository.findByIdAndCompanyId(query.announcementId(), currentCompanyId);
+        return announcementRepository.findByIdAndCompanyId(query.announcementId(), query.companyId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Announcement> handle(GetAllAnnouncementsQuery query) {
-        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
-        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
-            return announcementRepository.findAllByOrderByCreatedAtDesc();
-        }
-        return announcementRepository.findAllByCompanyIdOrderByCreatedAtDesc(currentCompanyId);
+        return announcementRepository.findAllByCompanyIdOrderByCreatedAtDesc(query.companyId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Announcement> handle(GetAnnouncementsByPriorityQuery query) {
-        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
-        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
-            return announcementRepository.findByPriorityLevel(query.priorityLevel());
-        }
-        return announcementRepository.findByPriorityLevelAndCompanyId(query.priorityLevel(), currentCompanyId);
+        return announcementRepository.findByPriorityLevelAndCompanyId(query.priorityLevel(), query.companyId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Announcement> handle(GetAnnouncementsByCreatorQuery query) {
-        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
-        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
-            return announcementRepository.findByCreatedByOrderByCreatedAtDesc(query.createdBy());
-        }
-        return announcementRepository.findByCreatedByAndCompanyIdOrderByCreatedAtDesc(query.createdBy(), currentCompanyId);
+        return announcementRepository.findByCreatedByAndCompanyIdOrderByCreatedAtDesc(query.createdBy(), query.companyId());
     }
 }

@@ -1,10 +1,13 @@
 package synera.centralis.api.event.interfaces.acl;
 
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import synera.centralis.api.event.domain.model.queries.GetAllEventsQuery;
 import synera.centralis.api.event.domain.model.queries.GetEventByIdQuery;
 import synera.centralis.api.event.domain.services.EventQueryService;
 import synera.centralis.api.dashboard.application.internal.outboundservices.acl.ExternalContentInfo;
+import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -25,9 +28,21 @@ import java.util.stream.Collectors;
 public class EventContextFacade {
 
     private final EventQueryService eventQueryService;
+    private final IamContextFacade iamContextFacade;
 
-    public EventContextFacade(EventQueryService eventQueryService) {
+    public EventContextFacade(EventQueryService eventQueryService, IamContextFacade iamContextFacade) {
         this.eventQueryService = eventQueryService;
+        this.iamContextFacade = iamContextFacade;
+    }
+
+    private CompanyId getCurrentCompanyId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            return null;
+        }
+        String username = authentication.getName();
+        java.util.UUID companyId = iamContextFacade.fetchCompanyIdByUsername(username);
+        return companyId != null ? new CompanyId(companyId) : null;
     }
 
     /**
@@ -37,7 +52,9 @@ public class EventContextFacade {
      */
     public Optional<ExternalContentInfo> getEventInfo(UUID eventId) {
         try {
-            var query = new GetEventByIdQuery(eventId);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return Optional.empty();
+            var query = new GetEventByIdQuery(eventId, companyId);
             var result = eventQueryService.handle(query);
             
             if (result.isEmpty()) {
@@ -80,7 +97,9 @@ public class EventContextFacade {
      */
     public boolean eventExists(UUID eventId) {
         try {
-            var query = new GetEventByIdQuery(eventId);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return false;
+            var query = new GetEventByIdQuery(eventId, companyId);
             var result = eventQueryService.handle(query);
             return result.isPresent();
         } catch (Exception e) {
@@ -95,9 +114,11 @@ public class EventContextFacade {
      */
     public Optional<ExternalContentInfo> getMostViewedEvent() {
         try {
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return Optional.empty();
             // Get all events and return the first one as "most viewed"
             // TODO: In the future, integrate with dashboard analytics for real "most viewed" data
-            var query = new GetAllEventsQuery();
+            var query = new GetAllEventsQuery(companyId);
             var events = eventQueryService.handle(query);
             
             if (events.isEmpty()) {
@@ -211,8 +232,10 @@ public class EventContextFacade {
      */
     public Map<String, Long> getEventParticipationStats(UUID eventId) {
         try {
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return Map.of("registered", 0L, "attended", 0L, "no_show", 0L);
             // Get the actual event to retrieve real recipient data
-            var query = new GetEventByIdQuery(eventId);
+            var query = new GetEventByIdQuery(eventId, companyId);
             var eventOptional = eventQueryService.handle(query);
             
             if (eventOptional.isPresent()) {

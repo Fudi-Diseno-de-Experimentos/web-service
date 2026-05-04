@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import synera.centralis.api.chat.domain.model.aggregates.Group;
 import synera.centralis.api.chat.domain.model.commands.*;
@@ -20,6 +21,9 @@ import synera.centralis.api.chat.interfaces.rest.resources.*;
 import synera.centralis.api.chat.interfaces.rest.transform.*;
 
 import jakarta.validation.Valid;
+import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -36,10 +40,22 @@ public class GroupController {
 
     private final GroupCommandService groupCommandService;
     private final GroupQueryService groupQueryService;
+    private final IamContextFacade iamContextFacade;
 
-    public GroupController(GroupCommandService groupCommandService, GroupQueryService groupQueryService) {
+    public GroupController(GroupCommandService groupCommandService, GroupQueryService groupQueryService, synera.centralis.api.iam.interfaces.acl.IamContextFacade iamContextFacade) {
         this.groupCommandService = groupCommandService;
         this.groupQueryService = groupQueryService;
+        this.iamContextFacade = iamContextFacade;
+    }
+
+    private CompanyId getCurrentCompanyId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            return null;
+        }
+        String username = authentication.getName();
+        java.util.UUID companyId = iamContextFacade.fetchCompanyIdByUsername(username);
+        return companyId != null ? new CompanyId(companyId) : null;
     }
 
     /**
@@ -54,7 +70,10 @@ public class GroupController {
     })
     public ResponseEntity<GroupResource> createGroup(@Valid @RequestBody CreateGroupResource resource) {
         try {
-            var createGroupCommand = CreateGroupCommandFromResourceAssembler.toCommandFromResource(resource);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var createGroupCommand = CreateGroupCommandFromResourceAssembler.toCommandFromResource(resource, companyId);
             Optional<Group> group = groupCommandService.handle(createGroupCommand);
             
             if (group.isPresent()) {
@@ -81,7 +100,10 @@ public class GroupController {
     public ResponseEntity<GroupResource> getGroupById(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
         try {
-            var getGroupByIdQuery = new GetGroupByIdQuery(groupId);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var getGroupByIdQuery = new GetGroupByIdQuery(groupId, companyId);
             Optional<Group> group = groupQueryService.handle(getGroupByIdQuery);
             
             if (group.isPresent()) {
@@ -107,7 +129,10 @@ public class GroupController {
     public ResponseEntity<List<GroupResource>> getGroupsByUserId(
             @Parameter(description = "User ID", required = true) @RequestParam UUID userId) {
         try {
-            var getGroupsByMemberIdQuery = new GetGroupsByMemberIdQuery(new UserId(userId));
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var getGroupsByMemberIdQuery = new GetGroupsByMemberIdQuery(new UserId(userId), companyId);
             List<Group> groups = groupQueryService.handle(getGroupsByMemberIdQuery);
             
             var groupResources = groups.stream()
@@ -133,7 +158,10 @@ public class GroupController {
     public ResponseEntity<List<GroupResource>> getGroupsByVisibility(
             @Parameter(description = "Group visibility (PUBLIC/PRIVATE)", required = true) @PathVariable GroupVisibility visibility) {
         try {
-            var getAllGroupsQuery = new GetAllGroupsQuery();
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var getAllGroupsQuery = new GetAllGroupsQuery(companyId);
             List<Group> allGroups = groupQueryService.handle(getAllGroupsQuery);
             List<Group> groups = allGroups.stream()
                     .filter(group -> group.getVisibility().equals(visibility))
@@ -164,7 +192,10 @@ public class GroupController {
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Valid @RequestBody UpdateGroupResource resource) {
         try {
-            var updateGroupCommand = UpdateGroupCommandFromResourceAssembler.toCommandFromResource(groupId, resource);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var updateGroupCommand = UpdateGroupCommandFromResourceAssembler.toCommandFromResource(groupId, resource, companyId);
             Optional<Group> updatedGroup = groupCommandService.handle(updateGroupCommand);
             
             if (updatedGroup.isPresent()) {
@@ -193,7 +224,10 @@ public class GroupController {
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Valid @RequestBody UpdateGroupVisibilityResource resource) {
         try {
-            var updateVisibilityCommand = UpdateGroupVisibilityCommandFromResourceAssembler.toCommandFromResource(groupId, resource);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var updateVisibilityCommand = UpdateGroupVisibilityCommandFromResourceAssembler.toCommandFromResource(groupId, resource, companyId);
             Optional<Group> updatedGroup = groupCommandService.handle(updateVisibilityCommand);
             
             if (updatedGroup.isPresent()) {
@@ -222,7 +256,10 @@ public class GroupController {
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Valid @RequestBody AddMemberToGroupResource resource) {
         try {
-            var addMemberCommand = AddMemberToGroupCommandFromResourceAssembler.toCommandFromResource(groupId, resource);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var addMemberCommand = AddMemberToGroupCommandFromResourceAssembler.toCommandFromResource(groupId, resource, companyId);
             Optional<Group> updatedGroup = groupCommandService.handle(addMemberCommand);
             
             if (updatedGroup.isPresent()) {
@@ -253,7 +290,10 @@ public class GroupController {
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Valid @RequestBody RemoveMemberFromGroupResource resource) {
         try {
-            var removeMemberCommand = RemoveMemberFromGroupCommandFromResourceAssembler.toCommandFromResource(groupId, resource);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var removeMemberCommand = RemoveMemberFromGroupCommandFromResourceAssembler.toCommandFromResource(groupId, resource, companyId);
             Optional<Group> updatedGroup = groupCommandService.handle(removeMemberCommand);
             
             if (updatedGroup.isPresent()) {
@@ -282,7 +322,10 @@ public class GroupController {
     public ResponseEntity<Void> deleteGroup(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
         try {
-            var deleteGroupCommand = new DeleteGroupCommand(groupId);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+
+            var deleteGroupCommand = new DeleteGroupCommand(groupId, companyId);
             Optional<UUID> deletedGroupId = groupCommandService.handle(deleteGroupCommand);
             
             if (deletedGroupId.isPresent()) {

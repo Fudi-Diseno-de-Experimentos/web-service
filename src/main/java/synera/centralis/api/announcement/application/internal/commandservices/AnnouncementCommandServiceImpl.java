@@ -53,10 +53,7 @@ public class AnnouncementCommandServiceImpl implements AnnouncementCommandServic
                 command.createdBy()
             );
 
-            CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
-            if (currentCompanyId != null) {
-                announcement.setCompanyId(currentCompanyId);
-            }
+            announcement.setCompanyId(command.companyId());
 
             var savedAnnouncement = announcementRepository.save(announcement);
             
@@ -93,7 +90,7 @@ public class AnnouncementCommandServiceImpl implements AnnouncementCommandServic
     @Override
     @Transactional
     public Optional<Announcement> handle(UpdateAnnouncementCommand command) {
-        return announcementRepository.findById(command.announcementId())
+        return announcementRepository.findByIdAndCompanyId(command.announcementId(), command.companyId())
                 .map(announcement -> {
                     try {
                         announcement.update(
@@ -112,7 +109,7 @@ public class AnnouncementCommandServiceImpl implements AnnouncementCommandServic
     @Override
     @Transactional
     public boolean handle(DeleteAnnouncementCommand command) {
-        return announcementRepository.findById(command.announcementId())
+        return announcementRepository.findByIdAndCompanyId(command.announcementId(), command.companyId())
                 .map(announcement -> {
                     // Delete all comments associated with this announcement first
                     commentRepository.deleteByAnnouncementId(command.announcementId());

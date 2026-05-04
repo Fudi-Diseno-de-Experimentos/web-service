@@ -6,6 +6,8 @@ import synera.centralis.api.chat.domain.model.valueobjects.UserId;
 import java.util.List;
 import java.util.UUID;
 
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+
 /**
  * Command to create a new group in the chat system.
  * Contains all necessary information to create a group.
@@ -16,7 +18,8 @@ public record CreateGroupCommand(
         String imageUrl,
         GroupVisibility visibility,
         List<UUID> memberIds,
-        UserId createdBy
+        UserId createdBy,
+        CompanyId companyId
 ) {
     public CreateGroupCommand {
         if (name == null || name.trim().isEmpty()) {
