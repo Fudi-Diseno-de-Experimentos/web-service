@@ -5,6 +5,7 @@ import synera.centralis.api.company.domain.model.aggregates.Company;
 import synera.centralis.api.company.domain.model.queries.GetAllCompaniesQuery;
 import synera.centralis.api.company.domain.model.queries.GetCompanyByIdQuery;
 import synera.centralis.api.company.domain.model.queries.GetCompanyByUserIdQuery;
+import synera.centralis.api.company.domain.model.queries.GetCompanyByJoinCodeQuery;
 import synera.centralis.api.company.domain.services.CompanyQueryService;
 import synera.centralis.api.company.infrastructure.persistence.jpa.repositories.CompanyRepository;
 
@@ -33,5 +34,10 @@ public class CompanyQueryServiceImpl implements CompanyQueryService {
     @Override
     public Optional<Company> handle(GetCompanyByUserIdQuery query) {
         return companyRepository.findByUserId(query.userId());
+    }
+
+    @Override
+    public Optional<Company> handle(GetCompanyByJoinCodeQuery query) {
+        return companyRepository.findByJoinCode(query.joinCode());
     }
 }

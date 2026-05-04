@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 import synera.centralis.api.chat.domain.model.valueobjects.GroupVisibility;
 import synera.centralis.api.chat.domain.model.valueobjects.UserId;
 import synera.centralis.api.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import java.util.HashSet;
 import java.util.List;
@@ -43,6 +44,10 @@ public class Group extends AuditableAbstractAggregateRoot<Group> {
     @CollectionTable(name = "group_members", joinColumns = @JoinColumn(name = "group_id"))
     @AttributeOverride(name = "userId", column = @Column(name = "user_id"))
     private Set<UserId> members = new HashSet<>();
+
+    @Embedded
+    private CompanyId companyId;
+    public void setCompanyId(synera.centralis.api.shared.domain.model.valueobjects.CompanyId companyId) { this.companyId = companyId; }
 
     /**
      * Constructor for creating a new group.

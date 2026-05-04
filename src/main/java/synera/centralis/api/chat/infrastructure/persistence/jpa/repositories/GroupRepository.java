@@ -10,6 +10,8 @@ import synera.centralis.api.chat.domain.model.valueobjects.UserId;
 import java.util.List;
 import java.util.UUID;
 
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+
 /**
  * JPA Repository interface for Group aggregate.
  * Provides data access methods for group operations.
@@ -22,6 +24,9 @@ public interface GroupRepository extends JpaRepository<Group, UUID> {
      * @param memberId the user ID to search for
      * @return list of groups where the user is a member
      */
+    @Query("SELECT g FROM Group g JOIN g.members m WHERE m = :memberId AND g.companyId = :companyId")
+    List<Group> findByMembersContainingAndCompanyId(@Param("memberId") UserId memberId, @Param("companyId") CompanyId companyId);
+
     @Query("SELECT g FROM Group g JOIN g.members m WHERE m = :memberId")
     List<Group> findByMembersContaining(@Param("memberId") UserId memberId);
 
@@ -31,12 +36,16 @@ public interface GroupRepository extends JpaRepository<Group, UUID> {
      * @return true if group exists, false otherwise
      */
     boolean existsById(UUID groupId);
+    boolean existsByIdAndCompanyId(UUID groupId, CompanyId companyId);
 
     /**
      * Find groups by name containing the specified text (case-insensitive).
      * @param name the text to search for in group names
      * @return list of groups with matching names
      */
+    @Query("SELECT g FROM Group g WHERE LOWER(g.name) LIKE LOWER(CONCAT('%', :name, '%')) AND g.companyId = :companyId")
+    List<Group> findByNameContainingIgnoreCaseAndCompanyId(@Param("name") String name, @Param("companyId") CompanyId companyId);
+
     @Query("SELECT g FROM Group g WHERE LOWER(g.name) LIKE LOWER(CONCAT('%', :name, '%'))")
     List<Group> findByNameContainingIgnoreCase(@Param("name") String name);
 
@@ -45,6 +54,9 @@ public interface GroupRepository extends JpaRepository<Group, UUID> {
      * @param visibility the group visibility
      * @return list of groups with the specified visibility
      */
+    @Query("SELECT g FROM Group g WHERE g.visibility = :visibility AND g.companyId = :companyId")
+    List<Group> findByVisibilityAndCompanyId(@Param("visibility") String visibility, @Param("companyId") CompanyId companyId);
+
     @Query("SELECT g FROM Group g WHERE g.visibility = :visibility")
     List<Group> findByVisibility(@Param("visibility") String visibility);
 

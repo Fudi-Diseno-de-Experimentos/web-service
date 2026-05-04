@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,6 +27,9 @@ import synera.centralis.api.iam.interfaces.rest.resources.UserResource;
 import synera.centralis.api.iam.interfaces.rest.transform.UpdateUserCommandFromResourceAssembler;
 import synera.centralis.api.iam.interfaces.rest.transform.UserResourceFromEntityAssembler;
 
+import synera.centralis.api.company.interfaces.acl.CompanyContextFacade;
+import synera.centralis.api.company.interfaces.rest.resources.JoinCompanyResource;
+
 /**
  * This class is a REST controller that exposes the users resource.
  * It includes the following operations:
@@ -38,10 +42,12 @@ import synera.centralis.api.iam.interfaces.rest.transform.UserResourceFromEntity
 public class UsersController {
     private final UserQueryService userQueryService;
     private final UserCommandService userCommandService;
+    private final CompanyContextFacade companyContextFacade;
 
-    public UsersController(UserQueryService userQueryService, UserCommandService userCommandService) {
+    public UsersController(UserQueryService userQueryService, UserCommandService userCommandService, CompanyContextFacade companyContextFacade) {
         this.userQueryService = userQueryService;
         this.userCommandService = userCommandService;
+        this.companyContextFacade = companyContextFacade;
     }
 
     /**
@@ -125,6 +131,51 @@ public class UsersController {
         if (updatedUser.isEmpty()) {
             return ResponseEntity.badRequest().build();
         }
+        var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(updatedUser.get());
+        return ResponseEntity.ok(userResource);
+    }
+
+    /**
+     * Joins a company using a 6-character code.
+     * @param joinCompanyResource the resource containing the join code.
+     * @return the updated user resource.
+     */
+    @Operation(summary = "Join a company", description = "Allows a user to join a company using a 6-character code.")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Successfully joined the company"),
+            @ApiResponse(responseCode = "400", description = "Invalid join code"),
+            @ApiResponse(responseCode = "404", description = "Company not found for the given code"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")})
+    @PostMapping("/me/company/join")
+    public ResponseEntity<UserResource> joinCompany(@RequestBody JoinCompanyResource joinCompanyResource) {
+        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        String username = authentication.getName();
+        var getUserQuery = new synera.centralis.api.iam.domain.model.queries.GetUserByUsernameQuery(username);
+        var userOptional = userQueryService.handle(getUserQuery);
+        
+        if (userOptional.isEmpty()) {
+            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+        }
+
+        UUID companyId = companyContextFacade.fetchCompanyIdByJoinCode(joinCompanyResource.joinCode());
+        if (companyId == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        var command = new synera.centralis.api.iam.domain.model.commands.AssignUserToCompanyCommand(
+                userOptional.get().getId(), 
+                new synera.centralis.api.shared.domain.model.valueobjects.CompanyId(companyId)
+        );
+        var updatedUser = userCommandService.handle(command);
+        
+        if (updatedUser.isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+        
         var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(updatedUser.get());
         return ResponseEntity.ok(userResource);
     }

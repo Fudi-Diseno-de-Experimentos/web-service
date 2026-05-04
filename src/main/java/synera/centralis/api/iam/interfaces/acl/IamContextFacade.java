@@ -103,6 +103,18 @@ public class IamContextFacade {
         return result.get().getUsername();
     }
 
+    /**
+     * Fetches the company id of the user with the given username.
+     * @param username The username of the user.
+     * @return The company id of the user.
+     */
+    public UUID fetchCompanyIdByUsername(String username) {
+        var getUserByUsernameQuery = new GetUserByUsernameQuery(username);
+        var result = userQueryService.handle(getUserByUsernameQuery);
+        if (result.isEmpty() || result.get().getCompanyId() == null) return null;
+        return result.get().getCompanyId().companyId();
+    }
+
     // === DASHBOARD ACL METHODS ===
 
     /**

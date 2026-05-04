@@ -28,6 +28,9 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
      * @param recipientId the user ID to search for
      * @return list of events where the user is a recipient
      */
+    @Query("SELECT e FROM Event e JOIN e.recipients r WHERE r = :recipientId AND e.companyId = :companyId")
+    List<Event> findByRecipientsContainingAndCompanyId(@Param("recipientId") UserId recipientId, @Param("companyId") CompanyId companyId);
+
     @Query("SELECT e FROM Event e JOIN e.recipients r WHERE r = :recipientId")
     List<Event> findByRecipientsContaining(@Param("recipientId") UserId recipientId);
 
@@ -36,6 +39,9 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
      * @param createdBy the creator user ID
      * @return list of events created by the user
      */
+    @Query("SELECT e FROM Event e WHERE e.createdBy = :createdBy AND e.companyId = :companyId")
+    List<Event> findByCreatedByAndCompanyId(@Param("createdBy") UserId createdBy, @Param("companyId") CompanyId companyId);
+
     @Query("SELECT e FROM Event e WHERE e.createdBy = :createdBy")
     List<Event> findByCreatedBy(@Param("createdBy") UserId createdBy);
 
@@ -45,12 +51,16 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
      * @return true if event exists, false otherwise
      */
     boolean existsById(UUID eventId);
+    boolean existsByIdAndCompanyId(UUID eventId, CompanyId companyId);
 
     /**
      * Find events by title containing the specified text (case-insensitive).
      * @param title the text to search for in event titles
      * @return list of events with matching titles
      */
+    @Query("SELECT e FROM Event e WHERE LOWER(e.title) LIKE LOWER(CONCAT('%', :title, '%')) AND e.companyId = :companyId")
+    List<Event> findByTitleContainingIgnoreCaseAndCompanyId(@Param("title") String title, @Param("companyId") CompanyId companyId);
+
     @Query("SELECT e FROM Event e WHERE LOWER(e.title) LIKE LOWER(CONCAT('%', :title, '%'))")
     List<Event> findByTitleContainingIgnoreCase(@Param("title") String title);
 
