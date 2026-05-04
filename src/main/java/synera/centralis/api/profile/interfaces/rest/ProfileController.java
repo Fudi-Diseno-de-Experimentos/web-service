@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
 import synera.centralis.api.profile.domain.model.queries.GetAllProfilesQuery;
 import synera.centralis.api.profile.domain.model.queries.GetProfileByIdQuery;
 import synera.centralis.api.profile.domain.model.queries.GetProfileByUserIdQuery;
@@ -48,10 +49,12 @@ public class ProfileController {
 
     private final ProfileCommandService profileCommandService;
     private final ProfileQueryService profileQueryService;
+    private final IamContextFacade iamContextFacade;
 
-    public ProfileController(ProfileCommandService profileCommandService, ProfileQueryService profileQueryService) {
+    public ProfileController(ProfileCommandService profileCommandService, ProfileQueryService profileQueryService, IamContextFacade iamContextFacade) {
         this.profileCommandService = profileCommandService;
         this.profileQueryService = profileQueryService;
+        this.iamContextFacade = iamContextFacade;
     }
 
     @PostMapping
@@ -95,10 +98,10 @@ public class ProfileController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         
-        UUID userId;
-        try {
-            userId = UUID.fromString(authentication.getName());
-        } catch (IllegalArgumentException e) {
+        String username = authentication.getName();
+        UUID userId = iamContextFacade.fetchUserIdByUsername(username);
+        
+        if (userId == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
         }
         
