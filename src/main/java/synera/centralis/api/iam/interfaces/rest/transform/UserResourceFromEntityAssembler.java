@@ -23,7 +23,8 @@ public class UserResourceFromEntityAssembler {
             user.getUsername(), 
             roles,
             user.getCreatedAt() != null ? user.getCreatedAt().toString() : null,
-            user.getUpdatedAt() != null ? user.getUpdatedAt().toString() : null
+            user.getUpdatedAt() != null ? user.getUpdatedAt().toString() : null,
+            user.getCompanyId() != null ? user.getCompanyId().companyId() : null
         );
     }
 }
