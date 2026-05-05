@@ -29,6 +29,9 @@ public record ProfileResource(
     String fullName,
 
     @Schema(description = "Avatar URL", example = "https://example.com/avatar.jpg")
-    String avatarUrl
+    String avatarUrl,
+    
+    @Schema(description = "Company ID", example = "123e4567-e89b-12d3-a456-426614174001")
+    UUID companyId
 ) {
 }

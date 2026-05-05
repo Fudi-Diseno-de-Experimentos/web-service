@@ -25,6 +25,9 @@ public record UserResource(
     String createdAt,
     
     @Schema(description = "Last update date", example = "2023-09-11T10:00:00Z")
-    String updatedAt
+    String updatedAt,
+    
+    @Schema(description = "Company ID", example = "123e4567-e89b-12d3-a456-426614174001")
+    UUID companyId
 ) {
 }
