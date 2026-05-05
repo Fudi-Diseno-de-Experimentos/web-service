@@ -4,6 +4,7 @@ import synera.centralis.api.company.domain.model.aggregates.Company;
 import synera.centralis.api.company.domain.model.queries.GetAllCompaniesQuery;
 import synera.centralis.api.company.domain.model.queries.GetCompanyByIdQuery;
 import synera.centralis.api.company.domain.model.queries.GetCompanyByUserIdQuery;
+import synera.centralis.api.company.domain.model.queries.GetCompanyByJoinCodeQuery;
 
 import java.util.List;
 import java.util.Optional;
@@ -12,4 +13,5 @@ public interface CompanyQueryService {
     Optional<Company> handle(GetCompanyByIdQuery query);
     List<Company> handle(GetAllCompaniesQuery query);
     Optional<Company> handle(GetCompanyByUserIdQuery query);
+    Optional<Company> handle(GetCompanyByJoinCodeQuery query);
 }

@@ -21,6 +21,8 @@ import synera.centralis.api.event.domain.model.commands.UpdateEventCommand;
 import synera.centralis.api.event.domain.services.EventCommandService;
 import synera.centralis.api.event.infrastructure.persistence.jpa.repositories.EventRepository;
 import synera.centralis.api.shared.domain.events.EventCreatedEvent;
+import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
+import synera.centralis.api.shared.domain.exceptions.ValidationException;
 
 /**
  * Implementation of EventCommandService.
@@ -41,7 +43,7 @@ public class EventCommandServiceImpl implements EventCommandService {
 
     @Override
     @Transactional
-    public Optional<Event> handle(CreateEventCommand command) {
+    public Event handle(CreateEventCommand command) {
         try {
             log.info("Creating new event with title: {}", command.title());
 
@@ -54,10 +56,7 @@ public class EventCommandServiceImpl implements EventCommandService {
                     command.createdBy()
             );
 
-            CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
-            if (currentCompanyId != null) {
-                event.setCompanyId(currentCompanyId);
-            }
+            event.setCompanyId(command.companyId());
 
             var savedEvent = eventRepository.save(event);
 
@@ -95,29 +94,28 @@ public class EventCommandServiceImpl implements EventCommandService {
 
             log.info("Successfully created event with ID: {}", savedEvent.getId());
 
-            return Optional.of(savedEvent);
+            return savedEvent;
 
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
         } catch (Exception e) {
             log.error("Error creating event: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error creating event: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
-    public Optional<Event> handle(UpdateEventCommand command) {
+    public Event handle(UpdateEventCommand command) {
+        log.info("Updating event with ID: {}", command.eventId());
+
+        var event = eventRepository.findByIdAndCompanyId(command.eventId(), command.companyId())
+                .orElseThrow(() -> {
+                    log.warn("Event not found with ID: {}", command.eventId());
+                    return new ResourceNotFoundException("Event not found with ID: " + command.eventId());
+                });
+
         try {
-            log.info("Updating event with ID: {}", command.eventId());
-
-            var eventOpt = eventRepository.findById(command.eventId());
-
-            if (eventOpt.isEmpty()) {
-                log.warn("Event not found with ID: {}", command.eventId());
-                return Optional.empty();
-            }
-
-            var event = eventOpt.get();
-
             // Update event information
             event.updateEvent(
                     command.title(),
@@ -131,34 +129,33 @@ public class EventCommandServiceImpl implements EventCommandService {
 
             log.info("Successfully updated event with ID: {}", updatedEvent.getId());
 
-            return Optional.of(updatedEvent);
+            return updatedEvent;
 
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
         } catch (Exception e) {
             log.error("Error updating event: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error updating event: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
-    public Optional<UUID> handle(DeleteEventCommand command) {
+    public boolean handle(DeleteEventCommand command) {
+        log.info("Deleting event with ID: {}", command.eventId());
+
+        if (!eventRepository.existsByIdAndCompanyId(command.eventId(), command.companyId())) {
+            log.warn("Event not found with ID: {}", command.eventId());
+            throw new ResourceNotFoundException("Event not found with ID: " + command.eventId());
+        }
+
         try {
-            log.info("Deleting event with ID: {}", command.eventId());
-
-            if (!eventRepository.existsById(command.eventId())) {
-                log.warn("Event not found with ID: {}", command.eventId());
-                return Optional.empty();
-            }
-
             eventRepository.deleteById(command.eventId());
-
             log.info("Successfully deleted event with ID: {}", command.eventId());
-
-            return Optional.of(command.eventId());
-
+            return true;
         } catch (Exception e) {
             log.error("Error deleting event: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error deleting event: " + e.getMessage());
         }
     }
 }

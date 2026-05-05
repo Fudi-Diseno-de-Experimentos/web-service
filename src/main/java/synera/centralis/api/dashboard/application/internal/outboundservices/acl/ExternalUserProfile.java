@@ -8,9 +8,7 @@ import java.util.UUID;
 public record ExternalUserProfile(
     UUID userId,
     String fullName,
-    String email,
-    String department,
-    String position
+    String email
 ) {
     public ExternalUserProfile {
         if (userId == null) {
@@ -19,7 +17,5 @@ public record ExternalUserProfile(
         // Set defaults for null values
         fullName = fullName != null ? fullName : "Unknown User";
         email = email != null ? email : "unknown@company.com";
-        department = department != null ? department : "Unknown Department";
-        position = position != null ? position : "Unknown Position";
     }
 }

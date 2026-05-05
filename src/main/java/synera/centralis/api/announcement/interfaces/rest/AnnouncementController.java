@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import synera.centralis.api.announcement.domain.model.commands.DeleteAnnouncementCommand;
 import synera.centralis.api.announcement.domain.model.queries.*;
@@ -24,6 +25,10 @@ import synera.centralis.api.announcement.interfaces.rest.resources.UpdateAnnounc
 import synera.centralis.api.announcement.interfaces.rest.transform.AnnouncementResourceFromEntityAssembler;
 import synera.centralis.api.announcement.interfaces.rest.transform.CreateAnnouncementCommandFromResourceAssembler;
 import synera.centralis.api.announcement.interfaces.rest.transform.UpdateAnnouncementCommandFromResourceAssembler;
+import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+import synera.centralis.api.shared.domain.exceptions.UnauthorizedException;
+import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
 
 import java.util.UUID;
 
@@ -38,12 +43,28 @@ public class AnnouncementController {
 
     private final AnnouncementCommandService announcementCommandService;
     private final AnnouncementQueryService announcementQueryService;
+    private final IamContextFacade iamContextFacade;
 
     @Autowired
     public AnnouncementController(AnnouncementCommandService announcementCommandService,
-                                AnnouncementQueryService announcementQueryService) {
+                                AnnouncementQueryService announcementQueryService,
+                                IamContextFacade iamContextFacade) {
         this.announcementCommandService = announcementCommandService;
         this.announcementQueryService = announcementQueryService;
+        this.iamContextFacade = iamContextFacade;
+    }
+
+    private CompanyId getCurrentCompanyId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            throw new UnauthorizedException("User not authenticated");
+        }
+        String username = authentication.getName();
+        java.util.UUID companyId = iamContextFacade.fetchCompanyIdByUsername(username);
+        if (companyId == null) {
+            throw new UnauthorizedException("User not associated with a company");
+        }
+        return new CompanyId(companyId);
     }
 
     @PostMapping
@@ -57,19 +78,12 @@ public class AnnouncementController {
                 content = @Content(schema = @Schema(implementation = String.class)))
     })
     public ResponseEntity<?> createAnnouncement(@Valid @RequestBody CreateAnnouncementResource resource) {
-        try {
-            var command = CreateAnnouncementCommandFromResourceAssembler.toCommandFromResource(resource);
-            var announcement = announcementCommandService.handle(command);
-            
-            if (announcement.isPresent()) {
-                var announcementResource = AnnouncementResourceFromEntityAssembler.toResourceFromEntity(announcement.get());
-                return ResponseEntity.status(HttpStatus.CREATED).body(announcementResource);
-            }
-            
-            return ResponseEntity.badRequest().body("Error creating announcement");
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error: " + e.getMessage());
-        }
+        var companyId = getCurrentCompanyId();
+        var command = CreateAnnouncementCommandFromResourceAssembler.toCommandFromResource(resource, companyId);
+        var announcement = announcementCommandService.handle(command);
+        
+        var announcementResource = AnnouncementResourceFromEntityAssembler.toResourceFromEntity(announcement);
+        return ResponseEntity.status(HttpStatus.CREATED).body(announcementResource);
     }
 
     @GetMapping("/{announcementId}")
@@ -82,15 +96,13 @@ public class AnnouncementController {
     })
     public ResponseEntity<?> getAnnouncementById(
             @Parameter(description = "Unique identifier of the announcement") @PathVariable UUID announcementId) {
-        var query = new GetAnnouncementByIdQuery(announcementId);
-        var announcement = announcementQueryService.handle(query);
+        var companyId = getCurrentCompanyId();
+        var query = new GetAnnouncementByIdQuery(announcementId, companyId);
+        var announcement = announcementQueryService.handle(query)
+                .orElseThrow(() -> new ResourceNotFoundException("Announcement not found with id: " + announcementId));
         
-        if (announcement.isPresent()) {
-            var resource = AnnouncementResourceFromEntityAssembler.toResourceFromEntity(announcement.get());
-            return ResponseEntity.ok(resource);
-        }
-        
-        return ResponseEntity.notFound().build();
+        var resource = AnnouncementResourceFromEntityAssembler.toResourceFromEntity(announcement);
+        return ResponseEntity.ok(resource);
     }
 
     @GetMapping
@@ -99,8 +111,8 @@ public class AnnouncementController {
         @ApiResponse(responseCode = "200", description = "Announcements retrieved successfully")
     })
     public ResponseEntity<List<AnnouncementResource>> getAllAnnouncements() {
-        
-        var query = new GetAllAnnouncementsQuery();
+        var companyId = getCurrentCompanyId();
+        var query = new GetAllAnnouncementsQuery(companyId);
         var announcements = announcementQueryService.handle(query);
         var resources = announcements.stream()
                 .map(AnnouncementResourceFromEntityAssembler::toResourceFromEntity)
@@ -118,19 +130,16 @@ public class AnnouncementController {
     public ResponseEntity<?> getAnnouncementsByPriority(
             @Parameter(description = "Priority level (NORMAL, HIGH, URGENT)") @PathVariable String priority) {
         
-        try {
-            var priorityLevel = Priority.PriorityLevel.valueOf(priority.toUpperCase());
-            var query = new GetAnnouncementsByPriorityQuery(priorityLevel);
-            
-            var announcements = announcementQueryService.handle(query);
-            var resources = announcements.stream()
-                    .map(AnnouncementResourceFromEntityAssembler::toResourceFromEntity)
-                    .toList();
-            
-            return ResponseEntity.ok(resources);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Invalid priority level: " + priority);
-        }
+        var companyId = getCurrentCompanyId();
+        var priorityLevel = Priority.PriorityLevel.valueOf(priority.toUpperCase());
+        var query = new GetAnnouncementsByPriorityQuery(priorityLevel, companyId);
+        
+        var announcements = announcementQueryService.handle(query);
+        var resources = announcements.stream()
+                .map(AnnouncementResourceFromEntityAssembler::toResourceFromEntity)
+                .toList();
+        
+        return ResponseEntity.ok(resources);
     }
 
     @GetMapping("/creator/{createdBy}")
@@ -140,8 +149,8 @@ public class AnnouncementController {
     })
     public ResponseEntity<List<AnnouncementResource>> getAnnouncementsByCreator(
             @Parameter(description = "ID of the user who created the announcements") @PathVariable UUID createdBy) {
-        
-        var query = new GetAnnouncementsByCreatorQuery(createdBy);
+        var companyId = getCurrentCompanyId();
+        var query = new GetAnnouncementsByCreatorQuery(createdBy, companyId);
         var announcements = announcementQueryService.handle(query);
         var resources = announcements.stream()
                 .map(AnnouncementResourceFromEntityAssembler::toResourceFromEntity)
@@ -162,19 +171,12 @@ public class AnnouncementController {
             @Parameter(description = "Unique identifier of the announcement") @PathVariable UUID announcementId,
             @Valid @RequestBody UpdateAnnouncementResource resource) {
         
-        try {
-            var command = UpdateAnnouncementCommandFromResourceAssembler.toCommandFromResource(announcementId, resource);
-            var announcement = announcementCommandService.handle(command);
-            
-            if (announcement.isPresent()) {
-                var announcementResource = AnnouncementResourceFromEntityAssembler.toResourceFromEntity(announcement.get());
-                return ResponseEntity.ok(announcementResource);
-            }
-            
-            return ResponseEntity.notFound().build();
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error updating announcement: " + e.getMessage());
-        }
+        var companyId = getCurrentCompanyId();
+        var command = UpdateAnnouncementCommandFromResourceAssembler.toCommandFromResource(announcementId, resource, companyId);
+        var announcement = announcementCommandService.handle(command);
+        
+        var announcementResource = AnnouncementResourceFromEntityAssembler.toResourceFromEntity(announcement);
+        return ResponseEntity.ok(announcementResource);
     }
 
     @DeleteMapping("/{announcementId}")
@@ -185,14 +187,10 @@ public class AnnouncementController {
     })
     public ResponseEntity<Void> deleteAnnouncement(
             @Parameter(description = "Unique identifier of the announcement") @PathVariable UUID announcementId) {
+        var companyId = getCurrentCompanyId();
+        var command = new DeleteAnnouncementCommand(announcementId, companyId);
+        announcementCommandService.handle(command);
         
-        var command = new DeleteAnnouncementCommand(announcementId);
-        boolean deleted = announcementCommandService.handle(command);
-        
-        if (deleted) {
-            return ResponseEntity.noContent().build();
-        }
-        
-        return ResponseEntity.notFound().build();
+        return ResponseEntity.noContent().build();
     }
 }

@@ -3,6 +3,7 @@ package synera.centralis.api.announcement.interfaces.rest.transform;
 import synera.centralis.api.announcement.domain.model.commands.UpdateAnnouncementCommand;
 import synera.centralis.api.announcement.domain.model.valueobjects.Priority;
 import synera.centralis.api.announcement.interfaces.rest.resources.UpdateAnnouncementResource;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import java.util.UUID;
 
@@ -15,7 +16,7 @@ public class UpdateAnnouncementCommandFromResourceAssembler {
     /**
      * Transforms UpdateAnnouncementResource to UpdateAnnouncementCommand
      */
-    public static UpdateAnnouncementCommand toCommandFromResource(UUID announcementId, UpdateAnnouncementResource resource) {
+    public static UpdateAnnouncementCommand toCommandFromResource(UUID announcementId, UpdateAnnouncementResource resource, CompanyId companyId) {
         var priorityLevel = Priority.PriorityLevel.valueOf(resource.priority().toUpperCase());
         var priority = new Priority(priorityLevel);
         
@@ -24,7 +25,8 @@ public class UpdateAnnouncementCommandFromResourceAssembler {
             resource.title(),
             resource.description(),
             resource.image(),
-            priority
+            priority,
+            companyId
         );
     }
 }

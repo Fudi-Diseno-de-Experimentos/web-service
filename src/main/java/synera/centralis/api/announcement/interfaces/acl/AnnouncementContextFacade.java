@@ -1,10 +1,12 @@
 package synera.centralis.api.announcement.interfaces.acl;
 
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import synera.centralis.api.announcement.domain.model.queries.GetAllAnnouncementsQuery;
 import synera.centralis.api.announcement.domain.model.queries.GetAnnouncementByIdQuery;
 import synera.centralis.api.announcement.domain.services.AnnouncementQueryService;
 import synera.centralis.api.dashboard.application.internal.outboundservices.acl.ExternalContentInfo;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -26,9 +28,21 @@ import java.util.stream.Collectors;
 public class AnnouncementContextFacade {
 
     private final AnnouncementQueryService announcementQueryService;
+    private final synera.centralis.api.iam.interfaces.acl.IamContextFacade iamContextFacade;
 
-    public AnnouncementContextFacade(AnnouncementQueryService announcementQueryService) {
+    public AnnouncementContextFacade(AnnouncementQueryService announcementQueryService, synera.centralis.api.iam.interfaces.acl.IamContextFacade iamContextFacade) {
         this.announcementQueryService = announcementQueryService;
+        this.iamContextFacade = iamContextFacade;
+    }
+
+    private CompanyId getCurrentCompanyId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            return null;
+        }
+        String username = authentication.getName();
+        java.util.UUID companyId = iamContextFacade.fetchCompanyIdByUsername(username);
+        return companyId != null ? new CompanyId(companyId) : null;
     }
 
     /**
@@ -38,7 +52,9 @@ public class AnnouncementContextFacade {
      */
     public Optional<ExternalContentInfo> getAnnouncementInfo(UUID announcementId) {
         try {
-            var query = new GetAnnouncementByIdQuery(announcementId);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return Optional.empty();
+            var query = new GetAnnouncementByIdQuery(announcementId, companyId);
             var result = announcementQueryService.handle(query);
             
             if (result.isEmpty()) {
@@ -81,7 +97,9 @@ public class AnnouncementContextFacade {
      */
     public boolean announcementExists(UUID announcementId) {
         try {
-            var query = new GetAnnouncementByIdQuery(announcementId);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return false;
+            var query = new GetAnnouncementByIdQuery(announcementId, companyId);
             var result = announcementQueryService.handle(query);
             return result.isPresent();
         } catch (Exception e) {
@@ -96,9 +114,11 @@ public class AnnouncementContextFacade {
      */
     public Optional<ExternalContentInfo> getMostViewedAnnouncement() {
         try {
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return Optional.empty();
             // Get all announcements and return the first one as "most viewed"
             // TODO: In the future, integrate with dashboard analytics for real "most viewed" data
-            var query = new GetAllAnnouncementsQuery();
+            var query = new GetAllAnnouncementsQuery(companyId);
             var announcements = announcementQueryService.handle(query);
             
             if (announcements.isEmpty()) {

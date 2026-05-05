@@ -3,8 +3,6 @@ package synera.centralis.api.profile.interfaces.rest.resources;
 import java.util.UUID;
 
 import io.swagger.v3.oas.annotations.media.Schema;
-import synera.centralis.api.profile.domain.model.valueobjects.Department;
-import synera.centralis.api.profile.domain.model.valueobjects.Position;
 
 /**
  * Profile resource
@@ -31,12 +29,6 @@ public record ProfileResource(
     String fullName,
 
     @Schema(description = "Avatar URL", example = "https://example.com/avatar.jpg")
-    String avatarUrl,
-
-    @Schema(description = "Position", example = "EMPLOYEE")
-    Position position,
-
-    @Schema(description = "Department", example = "OTHER")
-    Department department
+    String avatarUrl
 ) {
 }

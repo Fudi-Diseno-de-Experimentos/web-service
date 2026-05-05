@@ -49,8 +49,8 @@ public class IamContextFacade {
             List.of(Role.getDefaultRole())
         );
         var result = userCommandService.handle(signUpCommand);
-        if (result.isEmpty()) return null;
-        return result.get().getId();
+        if (result == null) return null;
+        return result.getId();
     }
 
     /**
@@ -75,8 +75,8 @@ public class IamContextFacade {
             roleList
         );
         var result = userCommandService.handle(signUpCommand);
-        if (result.isEmpty()) return null;
-        return result.get().getId();
+        if (result == null) return null;
+        return result.getId();
     }
 
     /**
@@ -101,6 +101,18 @@ public class IamContextFacade {
         var result = userQueryService.handle(getUserByIdQuery);
         if (result.isEmpty()) return Strings.EMPTY;
         return result.get().getUsername();
+    }
+
+    /**
+     * Fetches the company id of the user with the given username.
+     * @param username The username of the user.
+     * @return The company id of the user.
+     */
+    public UUID fetchCompanyIdByUsername(String username) {
+        var getUserByUsernameQuery = new GetUserByUsernameQuery(username);
+        var result = userQueryService.handle(getUserByUsernameQuery);
+        if (result.isEmpty() || result.get().getCompanyId() == null) return null;
+        return result.get().getCompanyId().companyId();
     }
 
     // === DASHBOARD ACL METHODS ===

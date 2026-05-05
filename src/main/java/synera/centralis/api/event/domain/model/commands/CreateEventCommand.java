@@ -6,6 +6,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+
 /**
  * Command to create a new event.
  * Contains all necessary information to create an event.
@@ -16,7 +18,8 @@ public record CreateEventCommand(
         LocalDateTime date,
         String location,
         List<UUID> recipientIds,
-        UserId createdBy
+        UserId createdBy,
+        CompanyId companyId
 ) {
     public CreateEventCommand {
         if (title == null || title.trim().isEmpty()) {
@@ -33,6 +36,9 @@ public record CreateEventCommand(
         }
         if (createdBy == null) {
             throw new IllegalArgumentException("Created by cannot be null");
+        }
+        if (companyId == null) {
+            throw new IllegalArgumentException("Company ID cannot be null");
         }
     }
 }

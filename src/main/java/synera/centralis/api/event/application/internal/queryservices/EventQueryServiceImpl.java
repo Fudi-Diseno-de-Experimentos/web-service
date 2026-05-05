@@ -35,36 +35,28 @@ public class EventQueryServiceImpl implements EventQueryService {
     @Transactional(readOnly = true)
     public Optional<Event> handle(GetEventByIdQuery query) {
         log.info("Getting event by ID: {}", query.eventId());
-        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
-        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
-            return eventRepository.findById(query.eventId());
-        }
-        return eventRepository.findByIdAndCompanyId(query.eventId(), currentCompanyId);
+        return eventRepository.findByIdAndCompanyId(query.eventId(), query.companyId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Event> handle(GetEventsByRecipientIdQuery query) {
         log.info("Getting events for recipient: {}", query.recipientId().userId());
-        return eventRepository.findByRecipientsContaining(query.recipientId()); // Recipients filter implies the user
+        return eventRepository.findByRecipientsContainingAndCompanyId(query.recipientId(), query.companyId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Event> handle(GetEventsByCreatorIdQuery query) {
         log.info("Getting events created by: {}", query.creatorId().userId());
-        return eventRepository.findByCreatedBy(query.creatorId()); // Creator filter implies the user
+        return eventRepository.findByCreatedByAndCompanyId(query.creatorId(), query.companyId());
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<Event> handle(GetAllEventsQuery query) {
         log.info("Getting all events");
-        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
-        if (SecurityUtils.isAdmin() || currentCompanyId == null) {
-            return eventRepository.findAll();
-        }
-        return eventRepository.findAllByCompanyId(currentCompanyId);
+        return eventRepository.findAllByCompanyId(query.companyId());
     }
 }
 

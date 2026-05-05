@@ -15,28 +15,27 @@ public interface MessageCommandService {
     /**
      * Handles the creation of a new message.
      * @param command the create message command
-     * @return the created message or empty if creation failed
+     * @return the created message
      */
-    Optional<Message> handle(CreateMessageCommand command);
+    Message handle(CreateMessageCommand command);
 
     /**
      * Handles updating message body content.
      * @param command the update message body command
-     * @return the updated message or empty if update failed
+     * @return the updated message
      */
-    Optional<Message> handle(UpdateMessageBodyCommand command);
+    Message handle(UpdateMessageBodyCommand command);
 
     /**
      * Handles updating message status.
      * @param command the update message status command
-     * @return the updated message or empty if update failed
+     * @return the updated message
      */
-    Optional<Message> handle(UpdateMessageStatusCommand command);
+    Message handle(UpdateMessageStatusCommand command);
 
     /**
      * Handles deleting a message.
      * @param command the delete message command
-     * @return the message ID if deletion was successful
      */
-    Optional<UUID> handle(DeleteMessageCommand command);
+    boolean handle(DeleteMessageCommand command);
 }

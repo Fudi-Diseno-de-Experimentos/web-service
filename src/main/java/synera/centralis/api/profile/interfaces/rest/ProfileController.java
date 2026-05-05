@@ -22,6 +22,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
 import synera.centralis.api.profile.domain.model.queries.GetAllProfilesQuery;
 import synera.centralis.api.profile.domain.model.queries.GetProfileByIdQuery;
 import synera.centralis.api.profile.domain.model.queries.GetProfileByUserIdQuery;
@@ -48,10 +49,12 @@ public class ProfileController {
 
     private final ProfileCommandService profileCommandService;
     private final ProfileQueryService profileQueryService;
+    private final IamContextFacade iamContextFacade;
 
-    public ProfileController(ProfileCommandService profileCommandService, ProfileQueryService profileQueryService) {
+    public ProfileController(ProfileCommandService profileCommandService, ProfileQueryService profileQueryService, IamContextFacade iamContextFacade) {
         this.profileCommandService = profileCommandService;
         this.profileQueryService = profileQueryService;
+        this.iamContextFacade = iamContextFacade;
     }
 
     @PostMapping
@@ -71,12 +74,42 @@ public class ProfileController {
         var command = CreateProfileCommandFromResourceAssembler.toCommandFromResource(resource);
         var profile = profileCommandService.handle(command);
         
+        var profileResource = ProfileResourceFromEntityAssembler.toResourceFromEntity(profile);
+        return new ResponseEntity<>(profileResource, HttpStatus.CREATED);
+    }
+
+    @GetMapping("/me")
+    @Operation(summary = "Get current user profile", description = "Retrieve the profile of the currently authenticated user")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Profile found",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProfileResource.class))),
+        @ApiResponse(responseCode = "401", description = "Unauthorized",
+                content = @Content),
+        @ApiResponse(responseCode = "404", description = "Profile not found",
+                content = @Content)
+    })
+    public ResponseEntity<ProfileResource> getCurrentUserProfile() {
+        var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        String username = authentication.getName();
+        UUID userId = iamContextFacade.fetchUserIdByUsername(username);
+        
+        if (userId == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        var query = new GetProfileByUserIdQuery(new UserId(userId));
+        var profile = profileQueryService.handle(query);
+        
         if (profile.isEmpty()) {
-            return ResponseEntity.badRequest().build();
+            return ResponseEntity.notFound().build();
         }
         
         var profileResource = ProfileResourceFromEntityAssembler.toResourceFromEntity(profile.get());
-        return new ResponseEntity<>(profileResource, HttpStatus.CREATED);
+        return ResponseEntity.ok(profileResource);
     }
 
     @GetMapping("/{profileId}")
@@ -178,21 +211,10 @@ public class ProfileController {
             @Parameter(description = "Profile update request", required = true)
             @Valid @RequestBody UpdateProfileResource resource) {
         
-        var query = new GetProfileByIdQuery(profileId);
-        var existingProfile = profileQueryService.handle(query);
-        
-        if (existingProfile.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        
         var command = UpdateProfileCommandFromResourceAssembler.toCommandFromResource(profileId, resource);
         var profile = profileCommandService.handle(command);
         
-        if (profile.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        
-        var profileResource = ProfileResourceFromEntityAssembler.toResourceFromEntity(profile.get());
+        var profileResource = ProfileResourceFromEntityAssembler.toResourceFromEntity(profile);
         return ResponseEntity.ok(profileResource);
     }
 }

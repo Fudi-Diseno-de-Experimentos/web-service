@@ -23,6 +23,9 @@ public class Company extends AuditableAbstractAggregateRoot<Company> {
     private String iconUrl;
     private boolean isActive;
 
+    @Column(name = "join_code", unique = true, length = 6)
+    private String joinCode;
+
     @Embedded
     @AttributeOverrides({
             @AttributeOverride(name = "userId", column = @Column(name = "user_id"))
@@ -37,6 +40,17 @@ public class Company extends AuditableAbstractAggregateRoot<Company> {
         this.iconUrl = command.iconUrl();
         this.isActive = command.isActive();
         this.userId = command.userId() != null ? new UserId(command.userId()) : null;
+        this.joinCode = generateJoinCode();
+    }
+
+    private String generateJoinCode() {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        StringBuilder sb = new java.lang.StringBuilder(6);
+        java.util.Random rnd = new java.util.Random();
+        for (int i = 0; i < 6; i++) {
+            sb.append(chars.charAt(rnd.nextInt(chars.length())));
+        }
+        return sb.toString();
     }
 
     public Company update(String ruc, String nombre, String iconUrl, boolean isActive) {

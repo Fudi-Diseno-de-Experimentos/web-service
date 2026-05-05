@@ -57,10 +57,8 @@ public class AuthenticationController {
     public ResponseEntity<AuthenticatedUserResource> signIn(@Valid @RequestBody SignInResource signInResource) {
         var signInCommand = SignInCommandFromResourceAssembler.toCommandFromResource(signInResource);
         var authenticatedUser = userCommandService.handle(signInCommand);
-        if (authenticatedUser.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        var authenticatedUserResource = AuthenticatedUserResourceFromEntityAssembler.toResourceFromEntity(authenticatedUser.get().getLeft(), authenticatedUser.get().getRight());
+        
+        var authenticatedUserResource = AuthenticatedUserResourceFromEntityAssembler.toResourceFromEntity(authenticatedUser.getLeft(), authenticatedUser.getRight());
         return ResponseEntity.ok(authenticatedUserResource);
     }
 
@@ -77,10 +75,8 @@ public class AuthenticationController {
     public ResponseEntity<UserResource> signUp(@Valid @RequestBody SignUpResource signUpResource) {
         var signUpCommand = SignUpCommandFromResourceAssembler.toCommandFromResource(signUpResource);
         var user = userCommandService.handle(signUpCommand);
-        if (user.isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-        var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(user.get());
+        
+        var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(user);
         return new ResponseEntity<>(userResource, HttpStatus.CREATED);
     }
 }

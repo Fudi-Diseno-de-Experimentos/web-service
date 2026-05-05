@@ -19,6 +19,8 @@ import synera.centralis.api.chat.domain.services.GroupCommandService;
 import synera.centralis.api.chat.infrastructure.persistence.jpa.repositories.GroupRepository;
 import synera.centralis.api.chat.infrastructure.persistence.jpa.repositories.MessageRepository;
 import synera.centralis.api.shared.domain.events.GroupCreatedEvent;
+import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
+import synera.centralis.api.shared.domain.exceptions.ValidationException;
 
 /**
  * Implementation of GroupCommandService.
@@ -42,7 +44,7 @@ public class GroupCommandServiceImpl implements GroupCommandService {
 
     @Override
     @Transactional
-    public Optional<Group> handle(CreateGroupCommand command) {
+    public Group handle(CreateGroupCommand command) {
         try {
             log.info("Creating new group with name: {}", command.name());
             
@@ -54,6 +56,8 @@ public class GroupCommandServiceImpl implements GroupCommandService {
                     command.memberIds(),
                     command.createdBy()
             );
+
+            group.setCompanyId(command.companyId());
 
             var savedGroup = groupRepository.save(group);
             
@@ -86,129 +90,135 @@ public class GroupCommandServiceImpl implements GroupCommandService {
             
             log.info("Successfully created group with ID: {}", savedGroup.getId());
             
-            return Optional.of(savedGroup);
+            return savedGroup;
             
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
         } catch (Exception e) {
             log.error("Error creating group: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error creating group: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
-    public Optional<Group> handle(UpdateGroupCommand command) {
-        try {
-            log.info("Updating group with ID: {}", command.groupId());
-            
-            var groupOptional = groupRepository.findById(command.groupId());
-            if (groupOptional.isEmpty()) {
-                log.warn("Group not found with ID: {}", command.groupId());
-                return Optional.empty();
-            }
+    public Group handle(UpdateGroupCommand command) {
+        log.info("Updating group with ID: {}", command.groupId());
+        
+        var group = groupRepository.findByIdAndCompanyId(command.groupId(), command.companyId())
+                .orElseThrow(() -> {
+                    log.warn("Group not found with ID: {}", command.groupId());
+                    return new ResourceNotFoundException("Group not found with ID: " + command.groupId());
+                });
 
-            var group = groupOptional.get();
+        try {
             group.updateGroup(command.name(), command.description(), command.imageUrl());
             
             var savedGroup = groupRepository.save(group);
             log.info("Successfully updated group with ID: {}", savedGroup.getId());
             
-            return Optional.of(savedGroup);
+            return savedGroup;
             
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
         } catch (Exception e) {
             log.error("Error updating group: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error updating group: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
-    public Optional<Group> handle(UpdateGroupVisibilityCommand command) {
-        try {
-            log.info("Updating visibility for group with ID: {}", command.groupId());
-            
-            var groupOptional = groupRepository.findById(command.groupId());
-            if (groupOptional.isEmpty()) {
-                log.warn("Group not found with ID: {}", command.groupId());
-                return Optional.empty();
-            }
+    public Group handle(UpdateGroupVisibilityCommand command) {
+        log.info("Updating visibility for group with ID: {}", command.groupId());
+        
+        var group = groupRepository.findByIdAndCompanyId(command.groupId(), command.companyId())
+                .orElseThrow(() -> {
+                    log.warn("Group not found with ID: {}", command.groupId());
+                    return new ResourceNotFoundException("Group not found with ID: " + command.groupId());
+                });
 
-            var group = groupOptional.get();
+        try {
             group.updateVisibility(command.visibility());
             
             var savedGroup = groupRepository.save(group);
             log.info("Successfully updated visibility for group with ID: {}", savedGroup.getId());
             
-            return Optional.of(savedGroup);
+            return savedGroup;
             
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
         } catch (Exception e) {
             log.error("Error updating group visibility: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error updating group visibility: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
-    public Optional<Group> handle(AddMemberToGroupCommand command) {
-        try {
-            log.info("Adding member {} to group {}", command.memberToAdd().userId(), command.groupId());
-            
-            var groupOptional = groupRepository.findById(command.groupId());
-            if (groupOptional.isEmpty()) {
-                log.warn("Group not found with ID: {}", command.groupId());
-                return Optional.empty();
-            }
+    public Group handle(AddMemberToGroupCommand command) {
+        log.info("Adding member {} to group {}", command.memberToAdd().userId(), command.groupId());
+        
+        var group = groupRepository.findByIdAndCompanyId(command.groupId(), command.companyId())
+                .orElseThrow(() -> {
+                    log.warn("Group not found with ID: {}", command.groupId());
+                    return new ResourceNotFoundException("Group not found with ID: " + command.groupId());
+                });
 
-            var group = groupOptional.get();
+        try {
             group.addMember(command.memberToAdd());
             
             var savedGroup = groupRepository.save(group);
             log.info("Successfully added member to group with ID: {}", savedGroup.getId());
             
-            return Optional.of(savedGroup);
+            return savedGroup;
             
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
         } catch (Exception e) {
             log.error("Error adding member to group: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error adding member to group: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
-    public Optional<Group> handle(RemoveMemberFromGroupCommand command) {
-        try {
-            log.info("Removing member {} from group {}", command.memberToRemove().userId(), command.groupId());
-            
-            var groupOptional = groupRepository.findById(command.groupId());
-            if (groupOptional.isEmpty()) {
-                log.warn("Group not found with ID: {}", command.groupId());
-                return Optional.empty();
-            }
+    public Group handle(RemoveMemberFromGroupCommand command) {
+        log.info("Removing member {} from group {}", command.memberToRemove().userId(), command.groupId());
+        
+        var group = groupRepository.findByIdAndCompanyId(command.groupId(), command.companyId())
+                .orElseThrow(() -> {
+                    log.warn("Group not found with ID: {}", command.groupId());
+                    return new ResourceNotFoundException("Group not found with ID: " + command.groupId());
+                });
 
-            var group = groupOptional.get();
+        try {
             group.removeMember(command.memberToRemove());
             
             var savedGroup = groupRepository.save(group);
             log.info("Successfully removed member from group with ID: {}", savedGroup.getId());
             
-            return Optional.of(savedGroup);
+            return savedGroup;
             
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
         } catch (Exception e) {
             log.error("Error removing member from group: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error removing member from group: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
-    public Optional<UUID> handle(DeleteGroupCommand command) {
-        try {
-            log.info("Deleting group with ID: {}", command.groupId());
-            
-            if (!groupRepository.existsById(command.groupId())) {
-                log.warn("Group not found with ID: {}", command.groupId());
-                return Optional.empty();
-            }
+    public boolean handle(DeleteGroupCommand command) {
+        log.info("Deleting group with ID: {}", command.groupId());
+        
+        if (!groupRepository.existsByIdAndCompanyId(command.groupId(), command.companyId())) {
+            log.warn("Group not found with ID: {}", command.groupId());
+            throw new ResourceNotFoundException("Group not found with ID: " + command.groupId());
+        }
 
+        try {
             // Delete all messages in the group first
             messageRepository.deleteByGroupId(command.groupId());
             
@@ -216,11 +226,11 @@ public class GroupCommandServiceImpl implements GroupCommandService {
             groupRepository.deleteById(command.groupId());
             
             log.info("Successfully deleted group with ID: {}", command.groupId());
-            return Optional.of(command.groupId());
+            return true;
             
         } catch (Exception e) {
             log.error("Error deleting group: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error deleting group: " + e.getMessage());
         }
     }
 }

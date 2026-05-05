@@ -8,7 +8,7 @@ import synera.centralis.api.company.domain.model.commands.UpdateCompanyCommand;
 import java.util.Optional;
 
 public interface CompanyCommandService {
-    Optional<Company> handle(CreateCompanyCommand command);
-    Optional<Company> handle(UpdateCompanyCommand command);
-    void handle(DeleteCompanyCommand command);
+    Company handle(CreateCompanyCommand command);
+    Company handle(UpdateCompanyCommand command);
+    boolean handle(DeleteCompanyCommand command);
 }

@@ -3,16 +3,12 @@ package synera.centralis.api.profile.domain.model.aggregates;
 import jakarta.persistence.Column;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
-import synera.centralis.api.profile.domain.model.valueobjects.Department;
-import synera.centralis.api.profile.domain.model.valueobjects.Position;
 import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 import synera.centralis.api.profile.domain.model.valueobjects.UserId;
 import synera.centralis.api.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
@@ -50,30 +46,18 @@ public class Profile extends AuditableAbstractAggregateRoot<Profile> {
     @Size(max = 255)
     private String avatarUrl;
 
-    @Enumerated(EnumType.STRING)
-    @NotNull
-    @Column(name = "position")
-    private Position position;
-
-    @Enumerated(EnumType.STRING)
-    @NotNull
-    @Column(name = "department")
-    private Department department;
-
     @Embedded
     private CompanyId companyId;
 
     public Profile() {
     }
 
-    public Profile(UserId userId, String firstName, String lastName, String email, String avatarUrl, Position position, Department department) {
+    public Profile(UserId userId, String firstName, String lastName, String email, String avatarUrl) {
         this.userId = userId;
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
         this.avatarUrl = avatarUrl;
-        this.position = position;
-        this.department = department;
     }
 
     /**
@@ -83,12 +67,10 @@ public class Profile extends AuditableAbstractAggregateRoot<Profile> {
      * @param lastName the last name
      * @param email the email
      * @param avatarUrl the avatar URL
-     * @param position the position
-     * @param department the department
      * @return the created profile
      */
-    public static Profile createProfile(UUID userId, String firstName, String lastName, String email, String avatarUrl, Position position, Department department) {
-        return new Profile(new UserId(userId), firstName, lastName, email, avatarUrl, position, department);
+    public static Profile createProfile(UUID userId, String firstName, String lastName, String email, String avatarUrl) {
+        return new Profile(new UserId(userId), firstName, lastName, email, avatarUrl);
     }
 
     /**
@@ -97,17 +79,13 @@ public class Profile extends AuditableAbstractAggregateRoot<Profile> {
      * @param lastName the new last name
      * @param email the new email
      * @param avatarUrl the new avatar URL
-     * @param position the new position
-     * @param department the new department
      * @return the updated profile
      */
-    public Profile updateProfile(String firstName, String lastName, String email, String avatarUrl, Position position, Department department) {
+    public Profile updateProfile(String firstName, String lastName, String email, String avatarUrl) {
         this.firstName = firstName;
         this.lastName = lastName;
         this.email = email;
         this.avatarUrl = avatarUrl;
-        this.position = position;
-        this.department = department;
         return this;
     }
 

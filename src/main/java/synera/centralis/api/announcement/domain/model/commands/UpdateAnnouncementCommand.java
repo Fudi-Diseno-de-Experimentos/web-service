@@ -2,6 +2,7 @@ package synera.centralis.api.announcement.domain.model.commands;
 
 import synera.centralis.api.announcement.domain.model.valueobjects.Priority;
 import java.util.UUID;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 /**
  * Update Announcement Command
@@ -12,7 +13,8 @@ public record UpdateAnnouncementCommand(
     String title,
     String description,
     String image,
-    Priority priority
+    Priority priority,
+    CompanyId companyId
 ) {
     public UpdateAnnouncementCommand {
         if (announcementId == null) {
@@ -26,6 +28,9 @@ public record UpdateAnnouncementCommand(
         }
         if (priority == null) {
             throw new IllegalArgumentException("Priority cannot be null");
+        }
+        if (companyId == null) {
+            throw new IllegalArgumentException("Company ID cannot be null");
         }
         if (title.trim().length() > 200) {
             throw new IllegalArgumentException("Title cannot exceed 200 characters");

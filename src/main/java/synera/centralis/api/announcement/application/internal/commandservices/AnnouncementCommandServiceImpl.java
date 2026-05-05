@@ -14,8 +14,9 @@ import synera.centralis.api.announcement.domain.services.AnnouncementCommandServ
 import synera.centralis.api.announcement.infrastructure.persistence.jpa.repositories.AnnouncementRepository;
 import synera.centralis.api.announcement.infrastructure.persistence.jpa.repositories.CommentRepository;
 import synera.centralis.api.shared.domain.events.UrgentAnnouncementCreatedEvent;
+import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
+import synera.centralis.api.shared.domain.exceptions.ValidationException;
 
-import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Logger;
 
@@ -43,7 +44,7 @@ public class AnnouncementCommandServiceImpl implements AnnouncementCommandServic
 
     @Override
     @Transactional
-    public Optional<Announcement> handle(CreateAnnouncementCommand command) {
+    public Announcement handle(CreateAnnouncementCommand command) {
         try {
             var announcement = new Announcement(
                 command.title(),
@@ -53,10 +54,7 @@ public class AnnouncementCommandServiceImpl implements AnnouncementCommandServic
                 command.createdBy()
             );
 
-            CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
-            if (currentCompanyId != null) {
-                announcement.setCompanyId(currentCompanyId);
-            }
+            announcement.setCompanyId(command.companyId());
 
             var savedAnnouncement = announcementRepository.save(announcement);
             
@@ -83,45 +81,48 @@ public class AnnouncementCommandServiceImpl implements AnnouncementCommandServic
                 logger.info("ℹ️ Announcement is not urgent, no event will be published");
             }
             
-            return Optional.of(savedAnnouncement);
+            return savedAnnouncement;
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
         } catch (Exception e) {
             logger.severe("Error creating announcement: " + e.getMessage());
-            throw new RuntimeException("Error creating announcement: " + e.getMessage(), e);
+            throw new ValidationException("Error creating announcement: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
-    public Optional<Announcement> handle(UpdateAnnouncementCommand command) {
-        return announcementRepository.findById(command.announcementId())
-                .map(announcement -> {
-                    try {
-                        announcement.update(
-                            command.title(),
-                            command.description(),
-                            command.image(),
-                            command.priority()
-                        );
-                        return announcementRepository.save(announcement);
-                    } catch (Exception e) {
-                        throw new RuntimeException("Error updating announcement: " + e.getMessage(), e);
-                    }
-                });
+    public Announcement handle(UpdateAnnouncementCommand command) {
+        var announcement = announcementRepository.findByIdAndCompanyId(command.announcementId(), command.companyId())
+                .orElseThrow(() -> new ResourceNotFoundException("Announcement not found with id: " + command.announcementId()));
+
+        try {
+            announcement.update(
+                command.title(),
+                command.description(),
+                command.image(),
+                command.priority()
+            );
+            return announcementRepository.save(announcement);
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
+        } catch (Exception e) {
+            throw new ValidationException("Error updating announcement: " + e.getMessage());
+        }
     }
 
     @Override
     @Transactional
     public boolean handle(DeleteAnnouncementCommand command) {
-        return announcementRepository.findById(command.announcementId())
-                .map(announcement -> {
-                    // Delete all comments associated with this announcement first
-                    commentRepository.deleteByAnnouncementId(command.announcementId());
-                    
-                    // Delete the announcement
-                    announcementRepository.delete(announcement);
-                    return true;
-                })
-                .orElse(false);
+        var announcement = announcementRepository.findByIdAndCompanyId(command.announcementId(), command.companyId())
+                .orElseThrow(() -> new ResourceNotFoundException("Announcement not found with id: " + command.announcementId()));
+
+        // Delete all comments associated with this announcement first
+        commentRepository.deleteByAnnouncementId(command.announcementId());
+        
+        // Delete the announcement
+        announcementRepository.delete(announcement);
+        return true;
     }
 
     @Override

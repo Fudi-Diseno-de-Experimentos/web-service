@@ -2,6 +2,8 @@ package synera.centralis.api.chat.domain.model.commands;
 
 import java.util.UUID;
 
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+
 /**
  * Command to update group information (name, description, image).
  * Allows updating multiple fields in a single operation.
@@ -10,7 +12,8 @@ public record UpdateGroupCommand(
         UUID groupId,
         String name,
         String description,
-        String imageUrl
+        String imageUrl,
+        CompanyId companyId
 ) {
     public UpdateGroupCommand {
         if (groupId == null) {

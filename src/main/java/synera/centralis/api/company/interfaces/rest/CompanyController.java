@@ -41,8 +41,8 @@ public class CompanyController {
     public ResponseEntity<CompanyResource> createCompany(@RequestBody CreateCompanyResource resource) {
         var createCompanyCommand = CreateCompanyCommandFromResourceAssembler.toCommandFromResource(resource);
         var company = companyCommandService.handle(createCompanyCommand);
-        if (company.isEmpty()) return ResponseEntity.badRequest().build();
-        var companyResource = CompanyResourceFromEntityAssembler.toResourceFromEntity(company.get());
+        
+        var companyResource = CompanyResourceFromEntityAssembler.toResourceFromEntity(company);
         return new ResponseEntity<>(companyResource, HttpStatus.CREATED);
     }
 
@@ -79,8 +79,8 @@ public class CompanyController {
     public ResponseEntity<CompanyResource> updateCompany(@PathVariable UUID id, @RequestBody UpdateCompanyResource resource) {
         var updateCompanyCommand = UpdateCompanyCommandFromResourceAssembler.toCommandFromResource(id, resource);
         var updatedCompany = companyCommandService.handle(updateCompanyCommand);
-        if (updatedCompany.isEmpty()) return ResponseEntity.badRequest().build();
-        var companyResource = CompanyResourceFromEntityAssembler.toResourceFromEntity(updatedCompany.get());
+        
+        var companyResource = CompanyResourceFromEntityAssembler.toResourceFromEntity(updatedCompany);
         return ResponseEntity.ok(companyResource);
     }
 
