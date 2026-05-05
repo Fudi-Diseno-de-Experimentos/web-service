@@ -19,6 +19,9 @@ import java.util.Map;
 
 import java.util.Optional;
 import java.util.UUID;
+import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
+import synera.centralis.api.shared.domain.exceptions.UnauthorizedException;
+import synera.centralis.api.shared.domain.exceptions.ValidationException;
 
 /**
  * Implementation of MessageCommandService.
@@ -45,14 +48,14 @@ public class MessageCommandServiceImpl implements MessageCommandService {
 
     @Override
     @Transactional
-    public Optional<Message> handle(CreateMessageCommand command) {
+    public Message handle(CreateMessageCommand command) {
         try {
             log.info("Creating new message in group: {}", command.groupId());
             
             // Verify group exists
             if (!groupRepository.existsById(command.groupId())) {
                 log.warn("Group not found with ID: {}", command.groupId());
-                return Optional.empty();
+                throw new ResourceNotFoundException("Group not found with ID: " + command.groupId());
             }
 
             // Verify sender is a member of the group
@@ -61,7 +64,7 @@ public class MessageCommandServiceImpl implements MessageCommandService {
                 var group = groupOptional.get();
                 if (!group.isMember(command.senderId())) {
                     log.warn("User {} is not a member of group {}", command.senderId().userId(), command.groupId());
-                    return Optional.empty();
+                    throw new UnauthorizedException("User is not a member of group");
                 }
             }
 
@@ -85,94 +88,95 @@ public class MessageCommandServiceImpl implements MessageCommandService {
             eventPublisher.publishEvent(event);
             
             log.info("Successfully created message with ID: {}", savedMessage.getMessageId());
-            return Optional.of(savedMessage);
+            return savedMessage;
             
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
         } catch (Exception e) {
             log.error("Error creating message: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error creating message: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
-    public Optional<Message> handle(UpdateMessageBodyCommand command) {
-        try {
-            log.info("Updating message body for ID: {}", command.messageId());
-            
-            var messageOptional = messageRepository.findById(command.messageId());
-            if (messageOptional.isEmpty()) {
-                log.warn("Message not found with ID: {}", command.messageId());
-                return Optional.empty();
-            }
+    public Message handle(UpdateMessageBodyCommand command) {
+        log.info("Updating message body for ID: {}", command.messageId());
+        
+        var message = messageRepository.findById(command.messageId())
+                .orElseThrow(() -> {
+                    log.warn("Message not found with ID: {}", command.messageId());
+                    return new ResourceNotFoundException("Message not found with ID: " + command.messageId());
+                });
 
-            var message = messageOptional.get();
-            
+        try {
             if (!message.canBeEdited()) {
                 log.warn("Message with ID {} cannot be edited (status: {})", command.messageId(), message.getStatus());
-                return Optional.empty();
+                throw new ValidationException("Message cannot be edited");
             }
 
             message.updateBody(command.newBody());
             var savedMessage = messageRepository.save(message);
             
             log.info("Successfully updated message body for ID: {}", savedMessage.getMessageId());
-            return Optional.of(savedMessage);
+            return savedMessage;
             
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
         } catch (Exception e) {
             log.error("Error updating message body: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error updating message body: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
-    public Optional<Message> handle(UpdateMessageStatusCommand command) {
-        try {
-            log.info("Updating message status for ID: {}", command.messageId());
-            
-            var messageOptional = messageRepository.findById(command.messageId());
-            if (messageOptional.isEmpty()) {
-                log.warn("Message not found with ID: {}", command.messageId());
-                return Optional.empty();
-            }
+    public Message handle(UpdateMessageStatusCommand command) {
+        log.info("Updating message status for ID: {}", command.messageId());
+        
+        var message = messageRepository.findById(command.messageId())
+                .orElseThrow(() -> {
+                    log.warn("Message not found with ID: {}", command.messageId());
+                    return new ResourceNotFoundException("Message not found with ID: " + command.messageId());
+                });
 
-            var message = messageOptional.get();
+        try {
             message.updateStatus(command.newStatus());
             
             var savedMessage = messageRepository.save(message);
             log.info("Successfully updated message status for ID: {}", savedMessage.getMessageId());
             
-            return Optional.of(savedMessage);
+            return savedMessage;
             
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
         } catch (Exception e) {
             log.error("Error updating message status: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error updating message status: " + e.getMessage());
         }
     }
 
     @Override
     @Transactional
-    public Optional<UUID> handle(DeleteMessageCommand command) {
-        try {
-            log.info("Deleting message with ID: {}", command.messageId());
-            
-            var messageOptional = messageRepository.findById(command.messageId());
-            if (messageOptional.isEmpty()) {
-                log.warn("Message not found with ID: {}", command.messageId());
-                return Optional.empty();
-            }
+    public boolean handle(DeleteMessageCommand command) {
+        log.info("Deleting message with ID: {}", command.messageId());
+        
+        var message = messageRepository.findById(command.messageId())
+                .orElseThrow(() -> {
+                    log.warn("Message not found with ID: {}", command.messageId());
+                    return new ResourceNotFoundException("Message not found with ID: " + command.messageId());
+                });
 
-            var message = messageOptional.get();
+        try {
             message.markAsDeleted();
             
             messageRepository.save(message);
             log.info("Successfully marked message as deleted with ID: {}", command.messageId());
-            
-            return Optional.of(command.messageId());
+            return true;
             
         } catch (Exception e) {
             log.error("Error deleting message: {}", e.getMessage(), e);
-            return Optional.empty();
+            throw new ValidationException("Error deleting message: " + e.getMessage());
         }
     }
 }

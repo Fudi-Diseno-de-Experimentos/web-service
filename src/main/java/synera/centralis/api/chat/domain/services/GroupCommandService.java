@@ -15,42 +15,41 @@ public interface GroupCommandService {
     /**
      * Handles the creation of a new group.
      * @param command the create group command
-     * @return the created group or empty if creation failed
+     * @return the created group
      */
-    Optional<Group> handle(CreateGroupCommand command);
+    Group handle(CreateGroupCommand command);
 
     /**
      * Handles updating group information (name, description, image).
      * @param command the update group command
-     * @return the updated group or empty if update failed
+     * @return the updated group
      */
-    Optional<Group> handle(UpdateGroupCommand command);
+    Group handle(UpdateGroupCommand command);
 
     /**
      * Handles updating group visibility.
      * @param command the update group visibility command
-     * @return the updated group or empty if update failed
+     * @return the updated group
      */
-    Optional<Group> handle(UpdateGroupVisibilityCommand command);
+    Group handle(UpdateGroupVisibilityCommand command);
 
     /**
      * Handles adding a member to a group.
      * @param command the add member command
-     * @return the updated group or empty if operation failed
+     * @return the updated group
      */
-    Optional<Group> handle(AddMemberToGroupCommand command);
+    Group handle(AddMemberToGroupCommand command);
 
     /**
      * Handles removing a member from a group.
      * @param command the remove member command
-     * @return the updated group or empty if operation failed
+     * @return the updated group
      */
-    Optional<Group> handle(RemoveMemberFromGroupCommand command);
+    Group handle(RemoveMemberFromGroupCommand command);
 
     /**
      * Handles deleting a group.
      * @param command the delete group command
-     * @return the group ID if deletion was successful
      */
-    Optional<UUID> handle(DeleteGroupCommand command);
+    boolean handle(DeleteGroupCommand command);
 }

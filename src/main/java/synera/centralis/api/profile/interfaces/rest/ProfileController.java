@@ -74,11 +74,7 @@ public class ProfileController {
         var command = CreateProfileCommandFromResourceAssembler.toCommandFromResource(resource);
         var profile = profileCommandService.handle(command);
         
-        if (profile.isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-        
-        var profileResource = ProfileResourceFromEntityAssembler.toResourceFromEntity(profile.get());
+        var profileResource = ProfileResourceFromEntityAssembler.toResourceFromEntity(profile);
         return new ResponseEntity<>(profileResource, HttpStatus.CREATED);
     }
 
@@ -215,21 +211,10 @@ public class ProfileController {
             @Parameter(description = "Profile update request", required = true)
             @Valid @RequestBody UpdateProfileResource resource) {
         
-        var query = new GetProfileByIdQuery(profileId);
-        var existingProfile = profileQueryService.handle(query);
-        
-        if (existingProfile.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        
         var command = UpdateProfileCommandFromResourceAssembler.toCommandFromResource(profileId, resource);
         var profile = profileCommandService.handle(command);
         
-        if (profile.isEmpty()) {
-            return ResponseEntity.notFound().build();
-        }
-        
-        var profileResource = ProfileResourceFromEntityAssembler.toResourceFromEntity(profile.get());
+        var profileResource = ProfileResourceFromEntityAssembler.toResourceFromEntity(profile);
         return ResponseEntity.ok(profileResource);
     }
 }

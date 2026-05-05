@@ -23,6 +23,7 @@ import synera.centralis.api.chat.interfaces.rest.transform.*;
 import jakarta.validation.Valid;
 import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
 import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+import synera.centralis.api.shared.domain.exceptions.UnauthorizedException;
 
 import java.util.List;
 import java.util.Optional;
@@ -55,7 +56,10 @@ public class GroupController {
         }
         String username = authentication.getName();
         java.util.UUID companyId = iamContextFacade.fetchCompanyIdByUsername(username);
-        return companyId != null ? new CompanyId(companyId) : null;
+        if (companyId == null) {
+            throw new UnauthorizedException("User not associated with any company");
+        }
+        return new CompanyId(companyId);
     }
 
     /**
@@ -69,22 +73,14 @@ public class GroupController {
             @ApiResponse(responseCode = "500", description = "Internal server error")
     })
     public ResponseEntity<GroupResource> createGroup(@Valid @RequestBody CreateGroupResource resource) {
-        try {
-            var companyId = getCurrentCompanyId();
-            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
 
-            var createGroupCommand = CreateGroupCommandFromResourceAssembler.toCommandFromResource(resource, companyId);
-            Optional<Group> group = groupCommandService.handle(createGroupCommand);
-            
-            if (group.isPresent()) {
-                var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(group.get());
-                return new ResponseEntity<>(groupResource, HttpStatus.CREATED);
-            } else {
-                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-            }
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        var createGroupCommand = CreateGroupCommandFromResourceAssembler.toCommandFromResource(resource, companyId);
+        var group = groupCommandService.handle(createGroupCommand);
+        
+        var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(group);
+        return new ResponseEntity<>(groupResource, HttpStatus.CREATED);
     }
 
     /**
@@ -99,22 +95,18 @@ public class GroupController {
     })
     public ResponseEntity<GroupResource> getGroupById(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
-        try {
-            var companyId = getCurrentCompanyId();
-            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
 
-            var getGroupByIdQuery = new GetGroupByIdQuery(groupId, companyId);
-            Optional<Group> group = groupQueryService.handle(getGroupByIdQuery);
-            
-            if (group.isPresent()) {
-                var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(group.get());
-                return new ResponseEntity<>(groupResource, HttpStatus.OK);
-            } else {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        var getGroupByIdQuery = new GetGroupByIdQuery(groupId, companyId);
+        var group = groupQueryService.handle(getGroupByIdQuery);
+        
+        if (group.isEmpty()) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
+        
+        var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(group.get());
+        return new ResponseEntity<>(groupResource, HttpStatus.OK);
     }
 
     /**
@@ -128,21 +120,17 @@ public class GroupController {
     })
     public ResponseEntity<List<GroupResource>> getGroupsByUserId(
             @Parameter(description = "User ID", required = true) @RequestParam UUID userId) {
-        try {
-            var companyId = getCurrentCompanyId();
-            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
 
-            var getGroupsByMemberIdQuery = new GetGroupsByMemberIdQuery(new UserId(userId), companyId);
-            List<Group> groups = groupQueryService.handle(getGroupsByMemberIdQuery);
-            
-            var groupResources = groups.stream()
-                    .map(GroupResourceFromEntityAssembler::toResourceFromEntity)
-                    .toList();
-            
-            return new ResponseEntity<>(groupResources, HttpStatus.OK);
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        var getGroupsByMemberIdQuery = new GetGroupsByMemberIdQuery(new UserId(userId), companyId);
+        List<Group> groups = groupQueryService.handle(getGroupsByMemberIdQuery);
+        
+        var groupResources = groups.stream()
+                .map(GroupResourceFromEntityAssembler::toResourceFromEntity)
+                .toList();
+        
+        return new ResponseEntity<>(groupResources, HttpStatus.OK);
     }
 
     /**
@@ -157,24 +145,20 @@ public class GroupController {
     })
     public ResponseEntity<List<GroupResource>> getGroupsByVisibility(
             @Parameter(description = "Group visibility (PUBLIC/PRIVATE)", required = true) @PathVariable GroupVisibility visibility) {
-        try {
-            var companyId = getCurrentCompanyId();
-            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
 
-            var getAllGroupsQuery = new GetAllGroupsQuery(companyId);
-            List<Group> allGroups = groupQueryService.handle(getAllGroupsQuery);
-            List<Group> groups = allGroups.stream()
-                    .filter(group -> group.getVisibility().equals(visibility))
-                    .toList();
-            
-            var groupResources = groups.stream()
-                    .map(GroupResourceFromEntityAssembler::toResourceFromEntity)
-                    .toList();
-            
-            return new ResponseEntity<>(groupResources, HttpStatus.OK);
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        var getAllGroupsQuery = new GetAllGroupsQuery(companyId);
+        List<Group> allGroups = groupQueryService.handle(getAllGroupsQuery);
+        List<Group> groups = allGroups.stream()
+                .filter(group -> group.getVisibility().equals(visibility))
+                .toList();
+        
+        var groupResources = groups.stream()
+                .map(GroupResourceFromEntityAssembler::toResourceFromEntity)
+                .toList();
+        
+        return new ResponseEntity<>(groupResources, HttpStatus.OK);
     }
 
     /**
@@ -191,22 +175,14 @@ public class GroupController {
     public ResponseEntity<GroupResource> updateGroup(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Valid @RequestBody UpdateGroupResource resource) {
-        try {
-            var companyId = getCurrentCompanyId();
-            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
 
-            var updateGroupCommand = UpdateGroupCommandFromResourceAssembler.toCommandFromResource(groupId, resource, companyId);
-            Optional<Group> updatedGroup = groupCommandService.handle(updateGroupCommand);
-            
-            if (updatedGroup.isPresent()) {
-                var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(updatedGroup.get());
-                return new ResponseEntity<>(groupResource, HttpStatus.OK);
-            } else {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        var updateGroupCommand = UpdateGroupCommandFromResourceAssembler.toCommandFromResource(groupId, resource, companyId);
+        var updatedGroup = groupCommandService.handle(updateGroupCommand);
+        
+        var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(updatedGroup);
+        return new ResponseEntity<>(groupResource, HttpStatus.OK);
     }
 
     /**
@@ -223,22 +199,14 @@ public class GroupController {
     public ResponseEntity<GroupResource> updateGroupVisibility(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Valid @RequestBody UpdateGroupVisibilityResource resource) {
-        try {
-            var companyId = getCurrentCompanyId();
-            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
 
-            var updateVisibilityCommand = UpdateGroupVisibilityCommandFromResourceAssembler.toCommandFromResource(groupId, resource, companyId);
-            Optional<Group> updatedGroup = groupCommandService.handle(updateVisibilityCommand);
-            
-            if (updatedGroup.isPresent()) {
-                var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(updatedGroup.get());
-                return new ResponseEntity<>(groupResource, HttpStatus.OK);
-            } else {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        var updateVisibilityCommand = UpdateGroupVisibilityCommandFromResourceAssembler.toCommandFromResource(groupId, resource, companyId);
+        var updatedGroup = groupCommandService.handle(updateVisibilityCommand);
+        
+        var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(updatedGroup);
+        return new ResponseEntity<>(groupResource, HttpStatus.OK);
     }
 
     /**
@@ -255,24 +223,14 @@ public class GroupController {
     public ResponseEntity<GroupResource> addMemberToGroup(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Valid @RequestBody AddMemberToGroupResource resource) {
-        try {
-            var companyId = getCurrentCompanyId();
-            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
 
-            var addMemberCommand = AddMemberToGroupCommandFromResourceAssembler.toCommandFromResource(groupId, resource, companyId);
-            Optional<Group> updatedGroup = groupCommandService.handle(addMemberCommand);
-            
-            if (updatedGroup.isPresent()) {
-                var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(updatedGroup.get());
-                return new ResponseEntity<>(groupResource, HttpStatus.OK);
-            } else {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        var addMemberCommand = AddMemberToGroupCommandFromResourceAssembler.toCommandFromResource(groupId, resource, companyId);
+        var updatedGroup = groupCommandService.handle(addMemberCommand);
+        
+        var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(updatedGroup);
+        return new ResponseEntity<>(groupResource, HttpStatus.OK);
     }
 
     /**
@@ -289,24 +247,14 @@ public class GroupController {
     public ResponseEntity<GroupResource> removeMemberFromGroup(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Valid @RequestBody RemoveMemberFromGroupResource resource) {
-        try {
-            var companyId = getCurrentCompanyId();
-            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
 
-            var removeMemberCommand = RemoveMemberFromGroupCommandFromResourceAssembler.toCommandFromResource(groupId, resource, companyId);
-            Optional<Group> updatedGroup = groupCommandService.handle(removeMemberCommand);
-            
-            if (updatedGroup.isPresent()) {
-                var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(updatedGroup.get());
-                return new ResponseEntity<>(groupResource, HttpStatus.OK);
-            } else {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        var removeMemberCommand = RemoveMemberFromGroupCommandFromResourceAssembler.toCommandFromResource(groupId, resource, companyId);
+        var updatedGroup = groupCommandService.handle(removeMemberCommand);
+        
+        var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(updatedGroup);
+        return new ResponseEntity<>(groupResource, HttpStatus.OK);
     }
 
     /**
@@ -321,20 +269,12 @@ public class GroupController {
     })
     public ResponseEntity<Void> deleteGroup(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
-        try {
-            var companyId = getCurrentCompanyId();
-            if (companyId == null) return new ResponseEntity<>(HttpStatus.UNAUTHORIZED);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
 
-            var deleteGroupCommand = new DeleteGroupCommand(groupId, companyId);
-            Optional<UUID> deletedGroupId = groupCommandService.handle(deleteGroupCommand);
-            
-            if (deletedGroupId.isPresent()) {
-                return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-            } else {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        var deleteGroupCommand = new DeleteGroupCommand(groupId, companyId);
+        groupCommandService.handle(deleteGroupCommand);
+        
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }

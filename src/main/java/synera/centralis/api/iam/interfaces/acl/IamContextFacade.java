@@ -49,8 +49,8 @@ public class IamContextFacade {
             List.of(Role.getDefaultRole())
         );
         var result = userCommandService.handle(signUpCommand);
-        if (result.isEmpty()) return null;
-        return result.get().getId();
+        if (result == null) return null;
+        return result.getId();
     }
 
     /**
@@ -75,8 +75,8 @@ public class IamContextFacade {
             roleList
         );
         var result = userCommandService.handle(signUpCommand);
-        if (result.isEmpty()) return null;
-        return result.get().getId();
+        if (result == null) return null;
+        return result.getId();
     }
 
     /**

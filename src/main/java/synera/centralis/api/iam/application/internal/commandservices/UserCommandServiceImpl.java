@@ -18,6 +18,9 @@ import synera.centralis.api.iam.infrastructure.persistence.jpa.repositories.Role
 import synera.centralis.api.iam.infrastructure.persistence.jpa.repositories.UserRepository;
 import synera.centralis.api.shared.domain.events.UserAssignedToCompanyEvent;
 import org.springframework.context.ApplicationEventPublisher;
+import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
+import synera.centralis.api.shared.domain.exceptions.UnauthorizedException;
+import synera.centralis.api.shared.domain.exceptions.DuplicateResourceException;
 
 /**
  * User command service implementation
@@ -55,14 +58,13 @@ public class UserCommandServiceImpl implements UserCommandService {
      * @throws RuntimeException if the user is not found or the password is invalid
      */
     @Override
-    public Optional<ImmutablePair<User, String>> handle(SignInCommand command) {
-        var user = userRepository.findByUsername(command.username());
-        if (user.isEmpty())
-            throw new RuntimeException("User not found");
-        if (!hashingService.matches(command.password(), user.get().getPassword()))
-            throw new RuntimeException("Invalid password");
-        var token = tokenService.generateToken(user.get().getUsername());
-        return Optional.of(ImmutablePair.of(user.get(), token));
+    public ImmutablePair<User, String> handle(SignInCommand command) {
+        var user = userRepository.findByUsername(command.username())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+        if (!hashingService.matches(command.password(), user.getPassword()))
+            throw new UnauthorizedException("Invalid password");
+        var token = tokenService.generateToken(user.getUsername());
+        return ImmutablePair.of(user, token);
     }
 
     /**
@@ -74,14 +76,14 @@ public class UserCommandServiceImpl implements UserCommandService {
      * @return the created user
      */
     @Override
-    public Optional<User> handle(SignUpCommand command) {
+    public User handle(SignUpCommand command) {
         // Validate username doesn't already exist
         if (userRepository.existsByUsername(command.username()))
-            throw new RuntimeException("Username already exists");
+            throw new DuplicateResourceException("Username already exists");
         
         var roles = command.roles().stream()
             .map(role -> roleRepository.findByName(role.getName())
-                .orElseThrow(() -> new RuntimeException("Role name not found")))
+                .orElseThrow(() -> new ResourceNotFoundException("Role name not found")))
             .toList();
             
         var user = new User(
@@ -111,7 +113,8 @@ public class UserCommandServiceImpl implements UserCommandService {
             System.err.println("Error creating profile for user " + savedUser.getId() + ": " + e.getMessage());
         }
         
-        return userRepository.findByUsername(command.username());
+        return userRepository.findByUsername(command.username())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found after save"));
     }
 
     /**
@@ -124,26 +127,21 @@ public class UserCommandServiceImpl implements UserCommandService {
      * @return the updated user
      */
     @Override
-    public Optional<User> handle(UpdateUserCommand command) {
-        var user = userRepository.findById(command.userId());
-        if (user.isEmpty())
-            throw new RuntimeException("User not found");
+    public User handle(UpdateUserCommand command) {
+        var existingUser = userRepository.findById(command.userId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         
-        var existingUser = user.get();
         var hashedPassword = hashingService.encode(command.newPassword());
         existingUser.setPassword(hashedPassword);
         
-        var updatedUser = userRepository.save(existingUser);
-        return Optional.of(updatedUser);
+        return userRepository.save(existingUser);
     }
 
     @Override
-    public Optional<User> handle(AssignUserToCompanyCommand command) {
-        var user = userRepository.findById(command.userId());
-        if (user.isEmpty())
-            throw new RuntimeException("User not found");
+    public User handle(AssignUserToCompanyCommand command) {
+        var existingUser = userRepository.findById(command.userId())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
-        var existingUser = user.get();
         existingUser.setCompanyId(command.companyId());
         
         var updatedUser = userRepository.save(existingUser);
@@ -154,6 +152,6 @@ public class UserCommandServiceImpl implements UserCommandService {
             command.companyId()
         ));
 
-        return Optional.of(updatedUser);
+        return updatedUser;
     }
 }

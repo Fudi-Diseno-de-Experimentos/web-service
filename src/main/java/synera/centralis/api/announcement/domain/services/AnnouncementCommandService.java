@@ -17,12 +17,12 @@ public interface AnnouncementCommandService {
     /**
      * Handles the creation of a new announcement
      */
-    Optional<Announcement> handle(CreateAnnouncementCommand command);
+    Announcement handle(CreateAnnouncementCommand command);
 
     /**
      * Handles the update of an existing announcement
      */
-    Optional<Announcement> handle(UpdateAnnouncementCommand command);
+    Announcement handle(UpdateAnnouncementCommand command);
 
     /**
      * Handles the deletion of an announcement

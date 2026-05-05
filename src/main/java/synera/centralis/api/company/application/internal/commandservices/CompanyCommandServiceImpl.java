@@ -8,7 +8,8 @@ import synera.centralis.api.company.domain.model.commands.UpdateCompanyCommand;
 import synera.centralis.api.company.domain.services.CompanyCommandService;
 import synera.centralis.api.company.infrastructure.persistence.jpa.repositories.CompanyRepository;
 
-import java.util.Optional;
+import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
+import synera.centralis.api.shared.domain.exceptions.ValidationException;
 
 @Service
 public class CompanyCommandServiceImpl implements CompanyCommandService {
@@ -20,27 +21,26 @@ public class CompanyCommandServiceImpl implements CompanyCommandService {
     }
 
     @Override
-    public Optional<Company> handle(CreateCompanyCommand command) {
+    public Company handle(CreateCompanyCommand command) {
         var company = new Company(command);
-        var createdCompany = companyRepository.save(company);
-        return Optional.of(createdCompany);
+        return companyRepository.save(company);
     }
 
     @Override
-    public Optional<Company> handle(UpdateCompanyCommand command) {
-        var result = companyRepository.findById(command.id());
-        if (result.isEmpty()) throw new IllegalArgumentException("Company does not exist");
-        var companyToUpdate = result.get();
+    public Company handle(UpdateCompanyCommand command) {
+        var companyToUpdate = companyRepository.findById(command.id())
+                .orElseThrow(() -> new ResourceNotFoundException("Company does not exist"));
+        
         companyToUpdate.update(command.ruc(), command.nombre(), command.iconUrl(), command.isActive());
-        var updatedCompany = companyRepository.save(companyToUpdate);
-        return Optional.of(updatedCompany);
+        return companyRepository.save(companyToUpdate);
     }
 
     @Override
-    public void handle(DeleteCompanyCommand command) {
+    public boolean handle(DeleteCompanyCommand command) {
         if (!companyRepository.existsById(command.id())) {
-            throw new IllegalArgumentException("Company does not exist");
+            throw new ResourceNotFoundException("Company does not exist");
         }
         companyRepository.deleteById(command.id());
+        return true;
     }
 }

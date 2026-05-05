@@ -29,6 +29,8 @@ import synera.centralis.api.iam.interfaces.rest.transform.UserResourceFromEntity
 
 import synera.centralis.api.company.interfaces.acl.CompanyContextFacade;
 import synera.centralis.api.company.interfaces.rest.resources.JoinCompanyResource;
+import synera.centralis.api.shared.domain.exceptions.UnauthorizedException;
+import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
 
 /**
  * This class is a REST controller that exposes the users resource.
@@ -105,10 +107,8 @@ public class UsersController {
     public ResponseEntity<UserResource> updateUser(@PathVariable UUID userId, @RequestBody UpdateUserResource updateUserResource) {
         var updateUserCommand = UpdateUserCommandFromResourceAssembler.toCommandFromResource(userId, updateUserResource);
         var updatedUser = userCommandService.handle(updateUserCommand);
-        if (updatedUser.isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-        var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(updatedUser.get());
+        
+        var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(updatedUser);
         return ResponseEntity.ok(userResource);
     }
 
@@ -128,10 +128,8 @@ public class UsersController {
     public ResponseEntity<UserResource> assignCompany(@PathVariable UUID userId, @RequestBody synera.centralis.api.iam.interfaces.rest.resources.AssignCompanyResource assignCompanyResource) {
         var command = new synera.centralis.api.iam.domain.model.commands.AssignUserToCompanyCommand(userId, new synera.centralis.api.shared.domain.model.valueobjects.CompanyId(assignCompanyResource.companyId()));
         var updatedUser = userCommandService.handle(command);
-        if (updatedUser.isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-        var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(updatedUser.get());
+        
+        var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(updatedUser);
         return ResponseEntity.ok(userResource);
     }
 
@@ -150,33 +148,26 @@ public class UsersController {
     public ResponseEntity<UserResource> joinCompany(@RequestBody JoinCompanyResource joinCompanyResource) {
         var authentication = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
-            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+            throw new UnauthorizedException("User not authenticated");
         }
         
         String username = authentication.getName();
         var getUserQuery = new synera.centralis.api.iam.domain.model.queries.GetUserByUsernameQuery(username);
-        var userOptional = userQueryService.handle(getUserQuery);
-        
-        if (userOptional.isEmpty()) {
-            return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
-        }
+        var user = userQueryService.handle(getUserQuery)
+                .orElseThrow(() -> new UnauthorizedException("User not found in system"));
 
         UUID companyId = companyContextFacade.fetchCompanyIdByJoinCode(joinCompanyResource.joinCode());
         if (companyId == null) {
-            return ResponseEntity.notFound().build();
+            throw new ResourceNotFoundException("Company not found for the given code");
         }
 
         var command = new synera.centralis.api.iam.domain.model.commands.AssignUserToCompanyCommand(
-                userOptional.get().getId(), 
+                user.getId(), 
                 new synera.centralis.api.shared.domain.model.valueobjects.CompanyId(companyId)
         );
         var updatedUser = userCommandService.handle(command);
         
-        if (updatedUser.isEmpty()) {
-            return ResponseEntity.badRequest().build();
-        }
-        
-        var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(updatedUser.get());
+        var userResource = UserResourceFromEntityAssembler.toResourceFromEntity(updatedUser);
         return ResponseEntity.ok(userResource);
     }
 }

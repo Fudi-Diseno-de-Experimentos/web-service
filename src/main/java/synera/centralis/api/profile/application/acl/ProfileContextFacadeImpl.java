@@ -41,7 +41,7 @@ public class ProfileContextFacadeImpl implements ProfileContextFacade {
             );
 
             var profile = profileCommandService.handle(command);
-            return profile.isEmpty() ? 0L : profile.get().getId().getMostSignificantBits();
+            return profile == null ? 0L : profile.getId().getMostSignificantBits();
         } catch (Exception e) {
             // Log error and return 0 to indicate failure
             System.err.println("Failed to create profile for user " + userIdStr + ": " + e.getMessage());

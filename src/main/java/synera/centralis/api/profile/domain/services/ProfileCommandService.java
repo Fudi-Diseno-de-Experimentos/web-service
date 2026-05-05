@@ -17,12 +17,12 @@ public interface ProfileCommandService {
      * @param command the create profile command
      * @return the created profile
      */
-    Optional<Profile> handle(CreateProfileCommand command);
+    Profile handle(CreateProfileCommand command);
     
     /**
      * Handle update profile command
      * @param command the update profile command
      * @return the updated profile
      */
-    Optional<Profile> handle(UpdateProfileCommand command);
+    Profile handle(UpdateProfileCommand command);
 }
