@@ -6,6 +6,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import synera.centralis.api.announcement.domain.model.commands.CreateAnnouncementCommand;
+import synera.centralis.api.announcement.domain.model.valueobjects.Priority;
+import synera.centralis.api.announcement.domain.services.AnnouncementCommandService;
+import synera.centralis.api.announcement.domain.model.aggregates.Announcement;
 import synera.centralis.api.chat.domain.model.commands.CreateGroupCommand;
 import synera.centralis.api.chat.domain.model.valueobjects.GroupVisibility;
 import synera.centralis.api.chat.domain.services.GroupCommandService;
@@ -31,6 +35,9 @@ public class BoundedContextsUnitTests {
 
     @Mock
     private GroupCommandService groupCommandService;
+
+    @Mock
+    private AnnouncementCommandService announcementCommandService;
 
     private CompanyId validCompanyId;
 
@@ -99,5 +106,48 @@ public class BoundedContextsUnitTests {
         });
 
         assertTrue(exception.getMessage().contains("CompanyId"));
+    }
+
+    @Test
+    @DisplayName("ANNOUNCEMENT: Debe fallar al crear un anuncio si la prioridad es nula")
+    void createAnnouncement_FailsWhen_PriorityIsNull() {
+        // Arrange
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            new CreateAnnouncementCommand(
+                    "Nuevo Anuncio",
+                    "Detalles del anuncio",
+                    null,
+                    null,
+                    chatManagerId.userId(),
+                    validCompanyId
+            );
+        });
+
+        // Assert
+        assertTrue(exception.getMessage().contains("Priority"));
+    }
+
+    @Test
+    @DisplayName("ANNOUNCEMENT: Debe procesar el comando de anuncio correctamente")
+    void shouldProcessCreateAnnouncementCommand() {
+        // Arrange
+        CreateAnnouncementCommand command = new CreateAnnouncementCommand(
+                "Actualización del Sistema",
+                "El sistema estará en mantenimiento a las 10 PM",
+                null,
+                Priority.high(),
+                chatManagerId.userId(),
+                validCompanyId
+        );
+
+        Announcement mockAnnouncement = mock(Announcement.class);
+        when(announcementCommandService.handle(command)).thenReturn(mockAnnouncement);
+
+        // Act
+        Announcement result = announcementCommandService.handle(command);
+
+        // Assert
+        assertNotNull(result);
+        verify(announcementCommandService, times(1)).handle(command);
     }
 }

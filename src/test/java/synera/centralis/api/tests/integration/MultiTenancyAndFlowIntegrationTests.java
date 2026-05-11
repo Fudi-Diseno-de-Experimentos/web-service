@@ -94,15 +94,31 @@ public class MultiTenancyAndFlowIntegrationTests {
                         .content(eventPayload))
                 .andExpect(status().isCreated());
 
-        // 2. MANAGER CREA UN GRUPO DE CHAT PARA EL EVENTO
+        // 2. MANAGER CREA UN ANUNCIO
+        String announcementPayload = """
+                {
+                    "title": "Nuevo beneficio de seguro médico",
+                    "description": "Se ha añadido la cobertura dental al plan principal.",
+                    "priority": "HIGH",
+                    "createdBy": "%s"
+                }
+                """.formatted(managerCompanyA_Id);
+
+        mockMvc.perform(post("/api/v1/announcements")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(announcementPayload))
+                .andExpect(status().isCreated());
+
+        // 3. MANAGER CREA UN GRUPO DE CHAT PARA EL EVENTO
         String groupPayload = """
                 {
                     "name": "Comité Organizador",
                     "description": "Logística del Townhall",
                     "visibility": "PRIVATE",
-                    "memberIds": ["%s"]
+                    "memberIds": ["%s"],
+                    "createdBy": "%s"
                 }
-                """.formatted(managerCompanyA_Id);
+                """.formatted(managerCompanyA_Id, managerCompanyA_Id);
 
         mockMvc.perform(post("/api/v1/groups")
                         .contentType(MediaType.APPLICATION_JSON)
