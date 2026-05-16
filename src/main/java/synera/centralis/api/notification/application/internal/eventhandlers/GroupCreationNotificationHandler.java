@@ -40,28 +40,14 @@ public class GroupCreationNotificationHandler {
     @Async("eventTaskExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handle(GroupCreatedEvent event) {
-        log.info("🎯 EVENT HANDLER TRIGGERED: GroupCreationNotificationHandler");
-        log.info("👥 Processing group creation notification for group: " + event.groupId() +
-                   ", creator: " + event.createdBy());
-
         try {
             // Find the newly created group with members eagerly loaded
             var group = groupRepository.findByIdWithMembers(event.groupId());
 
             if (group == null) {
-                log.warn("⚠️ Group not found for notification: " + event.groupId());
+                log.warn("Group not found for creation notification: {}", event.groupId());
                 return;
             }
-
-            log.info("📋 Group found: " + group.getName() + " with " + group.getMembers().size() + " members");
-
-            // Get all group member UUIDs except the creator
-            var allMembers = group.getMembers().stream()
-                    .map(member -> member.userId())
-                    .toList();
-
-            log.info("👤 All member IDs: " + allMembers);
-            log.info("👤 Creator ID: " + event.createdBy());
 
             var recipientUserIds = group.getMembers().stream()
                     .map(member -> member.userId())
@@ -69,10 +55,7 @@ public class GroupCreationNotificationHandler {
                     .map(userId -> userId.toString()) // Convert UUID to string for storage
                     .toList();
 
-            log.info("📧 Recipients (excluding creator): " + recipientUserIds);
-
             if (recipientUserIds.isEmpty()) {
-                log.info("ℹ️ No members to notify for group creation (only creator in group or creator excluded)");
                 return;
             }
 
@@ -84,20 +67,17 @@ public class GroupCreationNotificationHandler {
                     NotificationPriority.MEDIUM
             );
 
-            log.info("📤 Creating notification command: " + command.title());
-
             // Send notification
             var result = notificationCommandService.handle(command);
 
             if (result.isPresent()) {
-                log.info("✅ Successfully created group creation notification for " +
-                           recipientUserIds.size() + " members. Notification ID: " + result.get().getId());
+                log.info("Group creation notification created for {} members", recipientUserIds.size());
             } else {
-                log.error("❌ Failed to create group creation notification");
+                log.error("Failed to create group creation notification");
             }
 
         } catch (Exception e) {
-            log.error("💥 Error processing group creation notification", e);
+            log.error("Error processing group creation notification", e);
         }
     }
 }
