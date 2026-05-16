@@ -78,8 +78,21 @@ public class MessageWebSocketController {
             @Payload SendMessageWsPayload payload,
             Principal principal) {
 
-        log.info("[WebSocket] Mensaje recibido — grupo: {}, remitente: {}, longitud: {} chars",
-                groupId, payload.senderId(), payload.body().length());
+        if (principal == null) {
+            log.warn("[WebSocket] Mensaje recibido sin principal autenticado — rechazado");
+            throw new UnauthorizedException("Autenticación requerida para enviar mensajes");
+        }
+
+        // El remitente se deriva SIEMPRE del usuario autenticado, nunca del payload,
+        // para impedir suplantación. payload.senderId() se ignora deliberadamente.
+        UUID authenticatedUserId = iamContextFacade.fetchUserIdByUsername(principal.getName());
+        if (authenticatedUserId == null) {
+            log.warn("[WebSocket] No se pudo resolver el usuario autenticado: {}", principal.getName());
+            throw new UnauthorizedException("Usuario autenticado no encontrado");
+        }
+
+        log.info("[WebSocket] Mensaje recibido — grupo: {}, remitente autenticado: {}",
+                groupId, authenticatedUserId);
 
         // Verificar que el usuario autenticado está asociado a una compañía
         UUID companyId = iamContextFacade.fetchCompanyIdByUsername(principal.getName());
@@ -93,7 +106,7 @@ public class MessageWebSocketController {
         // y notificaciones push vía GroupMessageNotificationHandler
         var command = new CreateMessageCommand(
                 groupId,
-                new UserId(payload.senderId()),
+                new UserId(authenticatedUserId),
                 payload.body()
         );
 
