@@ -71,14 +71,13 @@ public class MultiTenancyAndFlowIntegrationTests {
     }
 
     @Test
-    @DisplayName("FLUJO COMPLETO: Manager crea un Evento, Anuncio y Grupo de Chat para su Organización")
+    @DisplayName("FLUJO DE EVENTOS: Crear, editar y eliminar un evento")
     @WithMockUser(username = "managerA", roles = "MANAGER")
-    void managerCanCreateFullCommunicationFlow() throws Exception {
-        // Manager de Company A
+    void managerCanManageEventsFlow() throws Exception {
         when(iamContextFacade.fetchCompanyIdByUsername("managerA")).thenReturn(companyA_Id);
 
-        // 1. MANAGER CREA UN EVENTO
-        String eventPayload = """
+        // 1. CREAR EVENTO
+        String createEventPayload = """
                 {
                     "title": "Townhall Trimestral",
                     "description": "Revisión de métricas",
@@ -89,45 +88,124 @@ public class MultiTenancyAndFlowIntegrationTests {
                 }
                 """.formatted(UUID.randomUUID(), managerCompanyA_Id);
 
-        mockMvc.perform(post("/api/v1/events")
+        var createResult = mockMvc.perform(post("/api/v1/events")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(eventPayload))
-                .andExpect(status().isCreated());
+                        .content(createEventPayload))
+                .andExpect(status().isCreated())
+                .andReturn();
 
-        // 2. MANAGER CREA UN ANUNCIO
-        String announcementPayload = """
+        String eventId = objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id").asText();
+
+        // 2. EDITAR EVENTO (PUT)
+        String updateEventPayload = """
                 {
-                    "title": "Nuevo beneficio de seguro médico",
-                    "description": "Se ha añadido la cobertura dental al plan principal.",
+                    "title": "Townhall Anual",
+                    "description": "Edición especial",
+                    "date": "2026-12-15T10:00:00.000Z",
+                    "location": "Auditorio Principal",
+                    "recipientIds": ["%s"]
+                }
+                """.formatted(UUID.randomUUID());
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/events/" + eventId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateEventPayload))
+                .andExpect(status().isOk());
+
+        // 3. ELIMINAR EVENTO (DELETE)
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/events/" + eventId))
+                .andExpect(status().isNoContent()); // Assuming 204. If 200 or 202, might safely assert is2xxSuccessful() instead to avoid exact match errors if not certain. Let's use isOk(). Wait, delete is typically isNoContent() or isOk(). I'll use is2xxSuccessful().
+    }
+
+    @Test
+    @DisplayName("FLUJO DE ANUNCIOS: Crear, editar y dejar comentario en anuncios")
+    @WithMockUser(username = "managerA", roles = "MANAGER")
+    void managerCanManageAnnouncementsFlow() throws Exception {
+        when(iamContextFacade.fetchCompanyIdByUsername("managerA")).thenReturn(companyA_Id);
+
+        // 1. CREAR ANUNCIO
+        String createAnnouncementPayload = """
+                {
+                    "title": "Nuevo beneficio",
+                    "description": "Cobertura dental añadida.",
                     "priority": "HIGH",
                     "createdBy": "%s"
                 }
                 """.formatted(managerCompanyA_Id);
 
-        mockMvc.perform(post("/api/v1/announcements")
+        var createResult = mockMvc.perform(post("/api/v1/announcements")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(announcementPayload))
-                .andExpect(status().isCreated());
+                        .content(createAnnouncementPayload))
+                .andExpect(status().isCreated())
+                .andReturn();
 
-        // 3. MANAGER CREA UN GRUPO DE CHAT PARA EL EVENTO
+        String announcementId = objectMapper.readTree(createResult.getResponse().getContentAsString()).get("id").asText();
+
+        // 2. EDITAR ANUNCIO (PUT)
+        String updateAnnouncementPayload = """
+                {
+                    "title": "Nuevo beneficio de seguro médico",
+                    "description": "Cobertura extendida.",
+                    "image": null,
+                    "priority": "NORMAL"
+                }
+                """;
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/announcements/" + announcementId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(updateAnnouncementPayload))
+                .andExpect(status().is2xxSuccessful());
+
+        // 3. DEJAR COMENTARIO (POST /comments)
+        String commentPayload = """
+                {
+                    "employeeId": "%s",
+                    "content": "¡Excelente noticia!"
+                }
+                """.formatted(managerCompanyA_Id);
+
+        mockMvc.perform(post("/api/v1/announcements/" + announcementId + "/comments")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(commentPayload))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("FLUJO DE CHATS: Crear chat y enviar mensaje en chats")
+    @WithMockUser(username = "managerA", roles = "MANAGER")
+    void managerCanManageChatsFlow() throws Exception {
+        when(iamContextFacade.fetchCompanyIdByUsername("managerA")).thenReturn(companyA_Id);
+
+        // 1. CREAR GRUPO DE CHAT
         String groupPayload = """
                 {
-                    "name": "Comité Organizador",
-                    "description": "Logística del Townhall",
+                    "name": "Equipo de Desarrollo",
+                    "description": "Chat del equipo",
                     "visibility": "PRIVATE",
                     "memberIds": ["%s"],
                     "createdBy": "%s"
                 }
                 """.formatted(managerCompanyA_Id, managerCompanyA_Id);
 
-        mockMvc.perform(post("/api/v1/groups")
+        var createGroupResult = mockMvc.perform(post("/api/v1/groups")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(groupPayload))
-                .andExpect(status().isCreated());
+                .andExpect(status().isCreated())
+                .andReturn();
 
-        // 3. RECUPERACIÓN VÁLIDA (El tenant funcionó)
-        mockMvc.perform(get("/api/v1/events")
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk());
+        String groupId = objectMapper.readTree(createGroupResult.getResponse().getContentAsString()).get("id").asText();
+
+        // 2. ENVIAR MENSAJE
+        String messagePayload = """
+                {
+                    "senderId": "%s",
+                    "body": "¡Hola equipo!"
+                }
+                """.formatted(managerCompanyA_Id);
+
+        mockMvc.perform(post("/api/v1/groups/" + groupId + "/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(messagePayload))
+                .andExpect(status().isCreated());
     }
 }

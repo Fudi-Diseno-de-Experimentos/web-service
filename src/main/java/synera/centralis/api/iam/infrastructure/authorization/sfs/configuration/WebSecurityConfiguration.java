@@ -117,7 +117,8 @@ public class WebSecurityConfiguration {
                                 "/api/v1/manufacturers",
                                 "/api/v1/announcements/**",
                                 "/api/v1/comments/**",
-                                "/api/v1/sse/**", // ← AGREGADO: Permitir endpoints SSE sin autenticación
+                                "/api/v1/sse/**",   // Permitir endpoints SSE sin autenticación
+                                "/ws-chat/**",      // WebSocket handshake — la auth JWT se hace en STOMP CONNECT
                                 "/webjars/**").permitAll()
                         .anyRequest().authenticated());
         http.authenticationProvider(authenticationProvider());
