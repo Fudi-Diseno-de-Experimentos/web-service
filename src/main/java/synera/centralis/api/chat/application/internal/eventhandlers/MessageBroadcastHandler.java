@@ -40,7 +40,7 @@ public class MessageBroadcastHandler {
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     @Async("eventTaskExecutor")
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void handle(MessageSentInGroupEvent event) {
         var message = messageQueryService.handle(new GetMessageByIdQuery(event.messageId()));
         if (message.isEmpty()) {

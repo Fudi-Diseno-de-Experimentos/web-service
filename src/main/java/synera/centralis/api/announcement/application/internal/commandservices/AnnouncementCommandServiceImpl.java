@@ -1,5 +1,6 @@
 package synera.centralis.api.announcement.application.internal.commandservices;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import synera.centralis.api.iam.infrastructure.authorization.sfs.utils.SecurityUtils;
 import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
@@ -18,17 +19,15 @@ import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
 import synera.centralis.api.shared.domain.exceptions.ValidationException;
 
 import java.util.UUID;
-import java.util.logging.Logger;
 
 /**
  * Announcement Command Service Implementation
  * Handles command operations for announcements
  */
+@Slf4j
 @Service
 public class AnnouncementCommandServiceImpl implements AnnouncementCommandService {
 
-    private static final Logger logger = Logger.getLogger(AnnouncementCommandServiceImpl.class.getName());
-    
     private final AnnouncementRepository announcementRepository;
     private final CommentRepository commentRepository;
     private final ApplicationEventPublisher eventPublisher;
@@ -58,34 +57,34 @@ public class AnnouncementCommandServiceImpl implements AnnouncementCommandServic
 
             var savedAnnouncement = announcementRepository.save(announcement);
             
-            logger.info("=== ANNOUNCEMENT CREATED ===");
-            logger.info("Title: " + savedAnnouncement.getTitle());
-            logger.info("Priority: " + savedAnnouncement.getPriority().level());
-            logger.info("Is Urgent: " + savedAnnouncement.getPriority().isUrgent());
-            
+            log.info("=== ANNOUNCEMENT CREATED ===");
+            log.info("Title: " + savedAnnouncement.getTitle());
+            log.info("Priority: " + savedAnnouncement.getPriority().level());
+            log.info("Is Urgent: " + savedAnnouncement.getPriority().isUrgent());
+
             // Publish event if announcement is urgent
             if (savedAnnouncement.getPriority().isUrgent()) {
-                logger.info("🚨 PUBLISHING URGENT ANNOUNCEMENT EVENT for: " + savedAnnouncement.getTitle());
-                
+                log.info("🚨 PUBLISHING URGENT ANNOUNCEMENT EVENT for: " + savedAnnouncement.getTitle());
+
                 var event = UrgentAnnouncementCreatedEvent.create(
                     savedAnnouncement.getId(),
                     savedAnnouncement.getTitle(),
                     savedAnnouncement.getDescription(),
                     savedAnnouncement.getCreatedBy()
                 );
-                
-                logger.info("🚀 Event created: " + event.toString());
+
+                log.info("🚀 Event created: " + event.toString());
                 eventPublisher.publishEvent(event);
-                logger.info("✅ Event published successfully");
+                log.info("✅ Event published successfully");
             } else {
-                logger.info("ℹ️ Announcement is not urgent, no event will be published");
+                log.info("ℹ️ Announcement is not urgent, no event will be published");
             }
-            
+
             return savedAnnouncement;
         } catch (IllegalArgumentException e) {
             throw new ValidationException(e.getMessage());
         } catch (Exception e) {
-            logger.severe("Error creating announcement: " + e.getMessage());
+            log.error("Error creating announcement", e);
             throw new ValidationException("Error creating announcement: " + e.getMessage());
         }
     }

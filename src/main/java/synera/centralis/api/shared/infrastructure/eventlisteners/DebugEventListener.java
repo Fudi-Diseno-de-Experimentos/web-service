@@ -1,52 +1,51 @@
 package synera.centralis.api.shared.infrastructure.eventlisteners;
 
-import org.springframework.context.event.EventListener;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import synera.centralis.api.shared.domain.events.GroupCreatedEvent;
 import synera.centralis.api.shared.domain.events.MessageSentInGroupEvent;
 import synera.centralis.api.shared.domain.events.UrgentAnnouncementCreatedEvent;
 
-import java.util.logging.Logger;
-
 /**
- * Debug event listener to verify that events are being published correctly.
- * This listener will log all domain events for debugging purposes.
+ * Debug event listener to verify that domain events are published.
+ * <p>
+ * Runs after commit on the async event executor so it never adds latency to
+ * the publishing transaction, and logs identifiers only — message bodies,
+ * announcement content and member lists are deliberately omitted to keep
+ * user content out of the logs.
+ * </p>
  */
+@Slf4j
 @Component
 public class DebugEventListener {
-    
-    private static final Logger logger = Logger.getLogger(DebugEventListener.class.getName());
-    
-    @EventListener
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async("eventTaskExecutor")
     public void handle(UrgentAnnouncementCreatedEvent event) {
-        logger.info("🔍 DEBUG: UrgentAnnouncementCreatedEvent received!");
-        logger.info("   - Event ID: " + event.eventId());
-        logger.info("   - Title: " + event.title());
-        logger.info("   - Content: " + event.content());
-        logger.info("   - Created By: " + event.createdBy());
-        logger.info("   - Occurred At: " + event.occurredAt());
+        log.info("DEBUG: UrgentAnnouncementCreatedEvent — eventId=" + event.eventId()
+                + ", createdBy=" + event.createdBy()
+                + ", occurredAt=" + event.occurredAt());
     }
-    
-    @EventListener
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async("eventTaskExecutor")
     public void handle(GroupCreatedEvent event) {
-        logger.info("🔍 DEBUG: GroupCreatedEvent received!");
-        logger.info("   - Event ID: " + event.eventId());
-        logger.info("   - Group ID: " + event.groupId());
-        logger.info("   - Group Name: " + event.groupName());
-        logger.info("   - Created By: " + event.createdBy());
-        logger.info("   - Member IDs: " + event.memberIds());
-        logger.info("   - Occurred At: " + event.occurredAt());
+        log.info("DEBUG: GroupCreatedEvent — eventId=" + event.eventId()
+                + ", groupId=" + event.groupId()
+                + ", createdBy=" + event.createdBy()
+                + ", occurredAt=" + event.occurredAt());
     }
-    
-    @EventListener
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async("eventTaskExecutor")
     public void handle(MessageSentInGroupEvent event) {
-        logger.info("🔍 DEBUG: MessageSentInGroupEvent received!");
-        logger.info("   - Event ID: " + event.eventId());
-        logger.info("   - Message ID: " + event.messageId());
-        logger.info("   - Group ID: " + event.groupId());
-        logger.info("   - Group Name: " + event.groupName());
-        logger.info("   - Sender ID: " + event.senderId());
-        logger.info("   - Message Content: " + event.messageContent());
-        logger.info("   - Occurred At: " + event.occurredAt());
+        log.info("DEBUG: MessageSentInGroupEvent — eventId=" + event.eventId()
+                + ", messageId=" + event.messageId()
+                + ", groupId=" + event.groupId()
+                + ", senderId=" + event.senderId()
+                + ", occurredAt=" + event.occurredAt());
     }
 }
