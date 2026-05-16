@@ -1,5 +1,6 @@
 package synera.centralis.api.notification.application.internal.eventhandlers;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
@@ -13,27 +14,24 @@ import synera.centralis.api.notification.domain.model.valueobjects.NotificationP
 import synera.centralis.api.notification.domain.services.NotificationCommandService;
 import synera.centralis.api.shared.domain.events.UrgentAnnouncementCreatedEvent;
 
-import java.util.logging.Logger;
-
 /**
  * Event handler for urgent announcement created events.
  * Notifies all registered users when an urgent announcement is created.
  */
+@Slf4j
 @Component
 public class UrgentAnnouncementNotificationHandler {
-    
-    private static final Logger logger = Logger.getLogger(UrgentAnnouncementNotificationHandler.class.getName());
-    
+
     private final NotificationCommandService notificationCommandService;
     private final UserRepository userRepository;
-    
+
     public UrgentAnnouncementNotificationHandler(
-            NotificationCommandService notificationCommandService, 
+            NotificationCommandService notificationCommandService,
             UserRepository userRepository) {
         this.notificationCommandService = notificationCommandService;
         this.userRepository = userRepository;
     }
-    
+
     /**
      * Handles urgent announcement created events by creating notifications for all users
      * @param event The urgent announcement created event
@@ -42,27 +40,19 @@ public class UrgentAnnouncementNotificationHandler {
     @Async("eventTaskExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handle(UrgentAnnouncementCreatedEvent event) {
-        logger.info("🎯 EVENT HANDLER TRIGGERED: UrgentAnnouncementNotificationHandler");
-        logger.info("📢 Processing urgent announcement notification for: " + event.title());
-        logger.info("📝 Content: " + event.content());
-        logger.info("👤 Created by: " + event.createdBy());
-        
         try {
             // Get all user UUIDs to notify
             var allUsers = userRepository.findAll();
-            logger.info("👥 Found " + allUsers.size() + " users in database");
-            
+
             var allUserIds = allUsers.stream()
                     .map(user -> user.getId().toString()) // Use User entity ID (UUID)
                     .toList();
-            
-            logger.info("📋 User UUIDs to notify: " + allUserIds);
-            
+
             if (allUserIds.isEmpty()) {
-                logger.warning("⚠️ No users found to notify for urgent announcement: " + event.title());
+                log.warn("No users found to notify for urgent announcement");
                 return;
             }
-            
+
             // Create notification command
             var command = new CreateNotificationCommand(
                     "Urgent: " + event.title(),
@@ -70,22 +60,18 @@ public class UrgentAnnouncementNotificationHandler {
                     allUserIds,
                     NotificationPriority.HIGH
             );
-            
-            logger.info("📤 Creating notification command: " + command.title());
-            
+
             // Send notification
             var result = notificationCommandService.handle(command);
-            
+
             if (result.isPresent()) {
-                logger.info("✅ Successfully created urgent announcement notification for " + 
-                           allUserIds.size() + " users. Notification ID: " + result.get().getId());
+                log.info("Urgent announcement notification created for {} users", allUserIds.size());
             } else {
-                logger.severe("❌ Failed to create urgent announcement notification");
+                log.error("Failed to create urgent announcement notification");
             }
-            
+
         } catch (Exception e) {
-            logger.severe("💥 Error processing urgent announcement notification: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Error processing urgent announcement notification", e);
         }
     }
 }

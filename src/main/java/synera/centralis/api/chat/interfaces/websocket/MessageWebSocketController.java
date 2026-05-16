@@ -1,19 +1,21 @@
 package synera.centralis.api.chat.interfaces.websocket;
 
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.messaging.handler.annotation.DestinationVariable;
+import org.springframework.messaging.handler.annotation.MessageExceptionHandler;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
-import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.messaging.simp.annotation.SendToUser;
 import org.springframework.stereotype.Controller;
 import synera.centralis.api.chat.domain.model.commands.CreateMessageCommand;
 import synera.centralis.api.chat.domain.model.valueobjects.UserId;
 import synera.centralis.api.chat.domain.services.MessageCommandService;
-import synera.centralis.api.chat.interfaces.rest.resources.MessageResource;
-import synera.centralis.api.chat.interfaces.rest.transform.MessageResourceFromEntityAssembler;
 import synera.centralis.api.chat.interfaces.websocket.resources.SendMessageWsPayload;
 import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
 import synera.centralis.api.shared.domain.exceptions.UnauthorizedException;
+import synera.centralis.api.shared.domain.exceptions.ValidationException;
+import synera.centralis.api.shared.interfaces.rest.resources.ErrorResource;
 
 import java.security.Principal;
 import java.util.UUID;
@@ -25,48 +27,47 @@ import java.util.UUID;
  * <ol>
  *   <li>El cliente Flutter se conecta a {@code /ws-chat} con JWT en el header STOMP CONNECT.</li>
  *   <li>El cliente publica un payload JSON al destino {@code /app/chat.send/{groupId}}.</li>
- *   <li>Este controlador recibe el payload, crea el mensaje en la base de datos
+ *   <li>Este controlador crea el mensaje en la base de datos
  *       (reutilizando {@link MessageCommandService}).</li>
- *   <li>El mensaje guardado se emite a {@code /topic/group.{groupId}}.</li>
- *   <li>Todos los clientes suscritos a ese topic reciben el mensaje en tiempo real.</li>
+ *   <li>{@code MessageCommandServiceImpl} publica {@code MessageSentInGroupEvent}; el
+ *       broadcast a {@code /topic/group.{groupId}} lo realiza
+ *       {@code MessageBroadcastHandler} tras el commit, de modo que los mensajes
+ *       creados vía REST y vía WebSocket se difunden de forma idéntica.</li>
  * </ol>
  *
  * <h2>Destinos STOMP</h2>
  * <ul>
  *   <li><b>Publicar (cliente → servidor):</b> {@code /app/chat.send/{groupId}}</li>
  *   <li><b>Suscribirse (servidor → cliente):</b> {@code /topic/group.{groupId}}</li>
+ *   <li><b>Errores (servidor → cliente):</b> {@code /user/queue/errors}</li>
  * </ul>
  *
  * <h2>Formato del payload de entrada</h2>
  * <pre>
  * {
- *   "senderId": "uuid-del-remitente",
+ *   "senderId": "uuid-del-remitente",   // ignorado: el remitente se deriva del JWT
  *   "body": "Texto del mensaje"
  * }
  * </pre>
- *
- * <h2>Formato del payload de salida (broadcast)</h2>
- * El servidor emite un {@link MessageResource} con todos los campos del mensaje guardado.
  */
 @Slf4j
 @Controller
 public class MessageWebSocketController {
 
     private final MessageCommandService messageCommandService;
-    private final SimpMessagingTemplate messagingTemplate;
     private final IamContextFacade iamContextFacade;
 
     public MessageWebSocketController(
             MessageCommandService messageCommandService,
-            SimpMessagingTemplate messagingTemplate,
             IamContextFacade iamContextFacade) {
         this.messageCommandService = messageCommandService;
-        this.messagingTemplate = messagingTemplate;
         this.iamContextFacade = iamContextFacade;
     }
 
     /**
-     * Recibe un mensaje de un cliente autenticado y lo reenvía a todos los miembros del grupo.
+     * Recibe un mensaje de un cliente autenticado y lo persiste.
+     * El broadcast en tiempo real lo gestiona {@code MessageBroadcastHandler}
+     * al consumir el evento de dominio.
      *
      * @param groupId   UUID del grupo destino (desde la ruta del destino STOMP)
      * @param payload   Cuerpo del mensaje enviado por el cliente
@@ -75,11 +76,24 @@ public class MessageWebSocketController {
     @MessageMapping("/chat.send/{groupId}")
     public void sendMessage(
             @DestinationVariable UUID groupId,
-            @Payload SendMessageWsPayload payload,
+            @Valid @Payload SendMessageWsPayload payload,
             Principal principal) {
 
-        log.info("[WebSocket] Mensaje recibido — grupo: {}, remitente: {}, longitud: {} chars",
-                groupId, payload.senderId(), payload.body().length());
+        if (principal == null) {
+            log.warn("[WebSocket] Mensaje recibido sin principal autenticado — rechazado");
+            throw new UnauthorizedException("Autenticación requerida para enviar mensajes");
+        }
+
+        // El remitente se deriva SIEMPRE del usuario autenticado, nunca del payload,
+        // para impedir suplantación. payload.senderId() se ignora deliberadamente.
+        UUID authenticatedUserId = iamContextFacade.fetchUserIdByUsername(principal.getName());
+        if (authenticatedUserId == null) {
+            log.warn("[WebSocket] No se pudo resolver el usuario autenticado: {}", principal.getName());
+            throw new UnauthorizedException("Usuario autenticado no encontrado");
+        }
+
+        log.info("[WebSocket] Mensaje recibido — grupo: {}, remitente autenticado: {}",
+                groupId, authenticatedUserId);
 
         // Verificar que el usuario autenticado está asociado a una compañía
         UUID companyId = iamContextFacade.fetchCompanyIdByUsername(principal.getName());
@@ -93,20 +107,32 @@ public class MessageWebSocketController {
         // y notificaciones push vía GroupMessageNotificationHandler
         var command = new CreateMessageCommand(
                 groupId,
-                new UserId(payload.senderId()),
+                new UserId(authenticatedUserId),
                 payload.body()
         );
 
         var savedMessage = messageCommandService.handle(command);
         log.info("[WebSocket] Mensaje guardado con ID: {}", savedMessage.getMessageId());
+    }
 
-        // Construir el resource de respuesta (mismo formato que el REST controller)
-        MessageResource response = MessageResourceFromEntityAssembler.toResourceFromEntity(savedMessage);
-
-        // Broadcast a TODOS los clientes suscritos al topic del grupo
-        String topicDestination = "/topic/group." + groupId;
-        messagingTemplate.convertAndSend(topicDestination, response);
-
-        log.info("[WebSocket] Mensaje broadcast enviado a topic: {}", topicDestination);
+    /**
+     * Devuelve los errores de procesamiento al cliente que originó el mensaje,
+     * en su cola privada {@code /user/queue/errors}, en lugar de descartarlos
+     * silenciosamente en el canal del broker.
+     */
+    @MessageExceptionHandler
+    @SendToUser(destinations = "/queue/errors", broadcast = false)
+    public ErrorResource handleException(Exception exception) {
+        int status = switch (exception) {
+            case UnauthorizedException ignored -> 401;
+            case ValidationException ignored -> 400;
+            default -> 400;
+        };
+        log.warn("[WebSocket] Error procesando mensaje ({}): {}", status, exception.getMessage());
+        return new ErrorResource(
+                exception.getMessage(),
+                exception.getClass().getSimpleName(),
+                status
+        );
     }
 }
