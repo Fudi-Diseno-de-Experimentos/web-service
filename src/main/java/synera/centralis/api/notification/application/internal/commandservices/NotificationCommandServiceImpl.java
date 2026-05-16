@@ -50,16 +50,11 @@ public class NotificationCommandServiceImpl implements NotificationCommandServic
         try {
             var savedNotification = notificationRepository.save(notification);
             logger.info("✅ Notification saved with ID: " + savedNotification.getId());
-            
-            // Register domain event
-            savedNotification.addDomainEvent(new NotificationCreatedEvent(
-                    savedNotification.getId(),
-                    savedNotification.getTitle(),
-                    savedNotification.getMessage(),
-                    savedNotification.getRecipients()
-            ));
-            
-            // Publish Spring event for FCM processing
+
+            // Single publication path: explicit Spring event consumed by the FCM
+            // handler. (The aggregate-root addDomainEvent path was dead — Spring
+            // Data only publishes registered events during save(), and this
+            // entity is not saved again after registration.)
             eventPublisher.publishEvent(new NotificationCreatedEvent(
                     savedNotification.getId(),
                     savedNotification.getTitle(),
