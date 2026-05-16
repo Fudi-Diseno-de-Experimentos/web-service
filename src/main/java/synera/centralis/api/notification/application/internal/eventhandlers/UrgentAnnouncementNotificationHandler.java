@@ -40,24 +40,16 @@ public class UrgentAnnouncementNotificationHandler {
     @Async("eventTaskExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handle(UrgentAnnouncementCreatedEvent event) {
-        log.info("🎯 EVENT HANDLER TRIGGERED: UrgentAnnouncementNotificationHandler");
-        log.info("📢 Processing urgent announcement notification for: " + event.title());
-        log.info("📝 Content: " + event.content());
-        log.info("👤 Created by: " + event.createdBy());
-
         try {
             // Get all user UUIDs to notify
             var allUsers = userRepository.findAll();
-            log.info("👥 Found " + allUsers.size() + " users in database");
 
             var allUserIds = allUsers.stream()
                     .map(user -> user.getId().toString()) // Use User entity ID (UUID)
                     .toList();
 
-            log.info("📋 User UUIDs to notify: " + allUserIds);
-
             if (allUserIds.isEmpty()) {
-                log.warn("⚠️ No users found to notify for urgent announcement: " + event.title());
+                log.warn("No users found to notify for urgent announcement");
                 return;
             }
 
@@ -69,20 +61,17 @@ public class UrgentAnnouncementNotificationHandler {
                     NotificationPriority.HIGH
             );
 
-            log.info("📤 Creating notification command: " + command.title());
-
             // Send notification
             var result = notificationCommandService.handle(command);
 
             if (result.isPresent()) {
-                log.info("✅ Successfully created urgent announcement notification for " +
-                           allUserIds.size() + " users. Notification ID: " + result.get().getId());
+                log.info("Urgent announcement notification created for {} users", allUserIds.size());
             } else {
-                log.error("❌ Failed to create urgent announcement notification");
+                log.error("Failed to create urgent announcement notification");
             }
 
         } catch (Exception e) {
-            log.error("💥 Error processing urgent announcement notification", e);
+            log.error("Error processing urgent announcement notification", e);
         }
     }
 }

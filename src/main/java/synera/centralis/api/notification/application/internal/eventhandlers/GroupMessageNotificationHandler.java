@@ -40,15 +40,12 @@ public class GroupMessageNotificationHandler {
     @Async("eventTaskExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handle(MessageSentInGroupEvent event) {
-        log.info("Processing group message notification for group: " + event.groupId() +
-                   ", message: " + event.messageId());
-
         try {
             // Find the group with members eagerly loaded
             var group = groupRepository.findByIdWithMembers(event.groupId());
 
             if (group == null) {
-                log.warn("Group not found for notification: " + event.groupId());
+                log.warn("Group not found for message notification: {}", event.groupId());
                 return;
             }
 
@@ -60,7 +57,6 @@ public class GroupMessageNotificationHandler {
                     .toList();
 
             if (recipientUsernames.isEmpty()) {
-                log.info("No members to notify for group message (only sender in group or sender excluded)");
                 return;
             }
 
@@ -76,8 +72,7 @@ public class GroupMessageNotificationHandler {
             var result = notificationCommandService.handle(command);
 
             if (result.isPresent()) {
-                log.info("Successfully created group message notification for " +
-                           recipientUsernames.size() + " members");
+                log.info("Group message notification created for {} members", recipientUsernames.size());
             } else {
                 log.error("Failed to create group message notification");
             }

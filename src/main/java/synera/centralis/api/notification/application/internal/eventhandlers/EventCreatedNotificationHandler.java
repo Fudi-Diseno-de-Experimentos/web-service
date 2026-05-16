@@ -30,12 +30,9 @@ public class EventCreatedNotificationHandler {
     @Async("eventTaskExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handle(EventCreatedEvent event) {
-        log.info("📅 Processing event creation notification for: " + event.title());
-
         try {
 
             Set<UUID> recipients = event.recipientIds();
-            log.info("📥 Recipients raw from event: " + (recipients == null ? "null" : recipients.toString()));
 
             if (recipients != null && !recipients.isEmpty()) {
                 String creatorIdStr = event.createdBy().toString();
@@ -46,8 +43,6 @@ public class EventCreatedNotificationHandler {
                         .filter(idStr -> !idStr.equals(creatorIdStr))
                         .toList();
 
-                log.info("📧 RecipientIds after excluding creator: " + recipientIds);
-
                 if (!recipientIds.isEmpty()) {
                     var attendeeCommand = new CreateNotificationCommand(
                             "Has sido añadido a un evento",
@@ -57,19 +52,15 @@ public class EventCreatedNotificationHandler {
                     );
                     var result = notificationCommandService.handle(attendeeCommand);
                     if (result != null && result.isPresent()) {
-                        log.info("✅ Notification sent to attendees: " + recipientIds.size());
+                        log.info("Notification sent to {} event attendees", recipientIds.size());
                     } else {
-                        log.error("❌ Failed to create notifications for attendees (service returned empty)");
+                        log.error("Failed to create event-attendee notifications (service returned empty)");
                     }
-                } else {
-                    log.info("ℹ️ No attendees to notify (after excluding creator)");
                 }
-            } else {
-                log.info("ℹ️ No recipientIds present in EventCreatedEvent");
             }
 
         } catch (Exception e) {
-            log.error("❌ Error processing event notification", e);
+            log.error("Error processing event notification", e);
         }
     }
 }

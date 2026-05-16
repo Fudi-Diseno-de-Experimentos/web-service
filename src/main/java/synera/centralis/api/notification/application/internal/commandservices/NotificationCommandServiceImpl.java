@@ -34,12 +34,6 @@ public class NotificationCommandServiceImpl implements NotificationCommandServic
     @Override
     @Transactional
     public Optional<Notification> handle(CreateNotificationCommand command) {
-        log.info("🔔 NOTIFICATION SERVICE: Creating notification");
-        log.info("📋 Title: " + command.title());
-        log.info("📝 Message: " + command.message());
-        log.info("👥 Recipients: " + command.recipients());
-        log.info("⚡ Priority: " + command.priority());
-
         var notification = new Notification(
                 command.title(),
                 command.message(),
@@ -49,7 +43,6 @@ public class NotificationCommandServiceImpl implements NotificationCommandServic
 
         try {
             var savedNotification = notificationRepository.save(notification);
-            log.info("✅ Notification saved with ID: " + savedNotification.getId());
 
             // Single publication path: explicit Spring event consumed by the FCM
             // handler. (The aggregate-root addDomainEvent path was dead — Spring
@@ -113,8 +106,6 @@ public class NotificationCommandServiceImpl implements NotificationCommandServic
             List<String> recipients,
             NotificationPriority priority) {
 
-        log.info("Creating bulk notification for " + recipients.size() + " recipients");
-
         try {
             var command = new CreateNotificationCommand(title, message, recipients, priority);
             var result = handle(command);
@@ -135,8 +126,6 @@ public class NotificationCommandServiceImpl implements NotificationCommandServic
     @Async("notificationTaskExecutor")
     @Transactional
     public CompletableFuture<List<Notification>> createBatchNotifications(List<CreateNotificationCommand> notifications) {
-        log.info("Creating batch notifications for " + notifications.size() + " commands");
-
         List<Notification> createdNotifications = new ArrayList<>();
 
         for (var command : notifications) {
