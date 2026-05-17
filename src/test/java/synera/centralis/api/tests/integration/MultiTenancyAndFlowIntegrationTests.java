@@ -175,6 +175,9 @@ public class MultiTenancyAndFlowIntegrationTests {
     @WithMockUser(username = "managerA", roles = "MANAGER")
     void managerCanManageChatsFlow() throws Exception {
         when(iamContextFacade.fetchCompanyIdByUsername("managerA")).thenReturn(companyA_Id);
+        // El remitente del mensaje ahora se deriva del JWT (no del cuerpo):
+        // managerA resuelve al miembro del grupo managerCompanyA_Id.
+        when(iamContextFacade.fetchUserIdByUsername("managerA")).thenReturn(managerCompanyA_Id);
 
         // 1. CREAR GRUPO DE CHAT
         String groupPayload = """
@@ -207,5 +210,108 @@ public class MultiTenancyAndFlowIntegrationTests {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(messagePayload))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    @DisplayName("CONVERSACIONES DIRECTAS: abrir (idempotente), listar y enviar/leer mensajes")
+    @WithMockUser(username = "managerA", roles = "MANAGER")
+    void managerCanOpenDirectConversationAndMessageFlow() throws Exception {
+        UUID targetUserId = UUID.randomUUID();
+        when(iamContextFacade.fetchCompanyIdByUsername("managerA")).thenReturn(companyA_Id);
+        // El iniciador se deriva del JWT; el destinatario debe ser de la misma compañía.
+        when(iamContextFacade.fetchUserIdByUsername("managerA")).thenReturn(managerCompanyA_Id);
+        when(iamContextFacade.fetchCompanyIdByUserId(targetUserId)).thenReturn(companyA_Id);
+
+        String openPayload = """
+                { "targetUserId": "%s" }
+                """.formatted(targetUserId);
+
+        // 1. ABRIR CONVERSACIÓN
+        var openResult = mockMvc.perform(post("/api/v1/conversations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(openPayload))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String conversationId = objectMapper.readTree(openResult.getResponse().getContentAsString()).get("id").asText();
+
+        // 2. IDEMPOTENCIA: reabrir devuelve la MISMA conversación
+        var reopenResult = mockMvc.perform(post("/api/v1/conversations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(openPayload))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String reopenedId = objectMapper.readTree(reopenResult.getResponse().getContentAsString()).get("id").asText();
+        org.junit.jupiter.api.Assertions.assertEquals(conversationId, reopenedId);
+
+        // 3. LISTAR CONVERSACIONES
+        mockMvc.perform(get("/api/v1/conversations"))
+                .andExpect(status().isOk());
+
+        // 4. ENVIAR MENSAJE (remitente derivado del JWT, no del cuerpo)
+        mockMvc.perform(post("/api/v1/conversations/" + conversationId + "/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"body\": \"¡Hola!\" }"))
+                .andExpect(status().isCreated());
+
+        // 5. LEER MENSAJES
+        mockMvc.perform(get("/api/v1/conversations/" + conversationId + "/messages"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("CONVERSACIONES DIRECTAS: no se puede abrir conversación consigo mismo")
+    @WithMockUser(username = "managerA", roles = "MANAGER")
+    void cannotOpenDirectConversationWithSelf() throws Exception {
+        when(iamContextFacade.fetchCompanyIdByUsername("managerA")).thenReturn(companyA_Id);
+        when(iamContextFacade.fetchUserIdByUsername("managerA")).thenReturn(managerCompanyA_Id);
+
+        String payload = """
+                { "targetUserId": "%s" }
+                """.formatted(managerCompanyA_Id);
+
+        mockMvc.perform(post("/api/v1/conversations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("CONVERSACIONES DIRECTAS: no se puede abrir conversación con usuario de otra compañía")
+    @WithMockUser(username = "managerA", roles = "MANAGER")
+    void cannotOpenDirectConversationWithCrossCompanyUser() throws Exception {
+        UUID targetUserId = UUID.randomUUID();
+        when(iamContextFacade.fetchCompanyIdByUsername("managerA")).thenReturn(companyA_Id);
+        when(iamContextFacade.fetchUserIdByUsername("managerA")).thenReturn(managerCompanyA_Id);
+        when(iamContextFacade.fetchCompanyIdByUserId(targetUserId)).thenReturn(companyB_Id);
+
+        String payload = """
+                { "targetUserId": "%s" }
+                """.formatted(targetUserId);
+
+        mockMvc.perform(post("/api/v1/conversations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(payload))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @DisplayName("SEPARACIÓN: una conversación directa no es accesible vía la API de grupos")
+    @WithMockUser(username = "managerA", roles = "MANAGER")
+    void directConversationIsNotExposedViaGroupApi() throws Exception {
+        UUID targetUserId = UUID.randomUUID();
+        when(iamContextFacade.fetchCompanyIdByUsername("managerA")).thenReturn(companyA_Id);
+        when(iamContextFacade.fetchUserIdByUsername("managerA")).thenReturn(managerCompanyA_Id);
+        when(iamContextFacade.fetchCompanyIdByUserId(targetUserId)).thenReturn(companyA_Id);
+
+        var openResult = mockMvc.perform(post("/api/v1/conversations")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"targetUserId\": \"" + targetUserId + "\" }"))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String conversationId = objectMapper.readTree(openResult.getResponse().getContentAsString()).get("id").asText();
+
+        // La API de grupos debe ocultar las conversaciones directas (404).
+        mockMvc.perform(get("/api/v1/groups/" + conversationId))
+                .andExpect(status().isNotFound());
     }
 }
