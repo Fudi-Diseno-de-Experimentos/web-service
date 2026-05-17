@@ -8,7 +8,7 @@ import synera.centralis.api.notification.infrastructure.persistence.jpa.reposito
 import java.util.List;
 import java.util.Optional;
 
-// @Service
+@Service
 public class FCMTokenService {
     
     private final UserFcmTokenRepository userFcmTokenRepository;
