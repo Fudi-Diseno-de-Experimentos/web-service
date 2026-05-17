@@ -115,6 +115,20 @@ public class IamContextFacade {
         return result.get().getCompanyId().companyId();
     }
 
+    /**
+     * Fetches the company id of the user with the given id.
+     * Used to validate that two users belong to the same company
+     * (e.g. before opening a direct conversation).
+     * @param userId The id of the user.
+     * @return The company id of the user, or null if the user has none.
+     */
+    public UUID fetchCompanyIdByUserId(UUID userId) {
+        var getUserByIdQuery = new GetUserByIdQuery(userId);
+        var result = userQueryService.handle(getUserByIdQuery);
+        if (result.isEmpty() || result.get().getCompanyId() == null) return null;
+        return result.get().getCompanyId().companyId();
+    }
+
     // === DASHBOARD ACL METHODS ===
 
     /**

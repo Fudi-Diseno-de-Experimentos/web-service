@@ -10,11 +10,13 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import synera.centralis.api.chat.domain.model.aggregates.Group;
 import synera.centralis.api.chat.domain.model.commands.AddMemberToGroupCommand;
+import synera.centralis.api.chat.domain.model.commands.CreateDirectConversationCommand;
 import synera.centralis.api.chat.domain.model.commands.CreateGroupCommand;
 import synera.centralis.api.chat.domain.model.commands.DeleteGroupCommand;
 import synera.centralis.api.chat.domain.model.commands.RemoveMemberFromGroupCommand;
 import synera.centralis.api.chat.domain.model.commands.UpdateGroupCommand;
 import synera.centralis.api.chat.domain.model.commands.UpdateGroupVisibilityCommand;
+import synera.centralis.api.chat.domain.model.valueobjects.GroupType;
 import synera.centralis.api.chat.domain.services.GroupCommandService;
 import synera.centralis.api.chat.infrastructure.persistence.jpa.repositories.GroupRepository;
 import synera.centralis.api.chat.infrastructure.persistence.jpa.repositories.MessageRepository;
@@ -97,6 +99,49 @@ public class GroupCommandServiceImpl implements GroupCommandService {
         } catch (Exception e) {
             log.error("Error creating group: {}", e.getMessage(), e);
             throw new ValidationException("Error creating group: " + e.getMessage());
+        }
+    }
+
+    @Override
+    @Transactional
+    public Group handle(CreateDirectConversationCommand command) {
+        try {
+            // Idempotente: si ya existe la conversación directa entre ambos
+            // usuarios en la compañía, se reutiliza (get-or-create).
+            var existing = groupRepository.findDirectConversation(
+                    command.requester(), command.target(), command.companyId(), GroupType.DIRECT);
+            if (!existing.isEmpty()) {
+                log.info("Reusing existing direct conversation {} in company {}",
+                        existing.get(0).getId(), command.companyId().companyId());
+                return existing.get(0);
+            }
+
+            var conversation = Group.createDirectConversation(
+                    command.requester(), command.target(), command.companyId());
+            var saved = groupRepository.save(conversation);
+
+            // Reutiliza el mismo evento que los grupos para que las
+            // notificaciones push funcionen de forma idéntica.
+            var memberIds = saved.getMembers().stream()
+                    .map(member -> member.userId())
+                    .collect(java.util.stream.Collectors.toSet());
+            var event = GroupCreatedEvent.create(
+                    saved.getId(),
+                    saved.getName(),
+                    saved.getCreatedBy().userId(),
+                    memberIds
+            );
+            eventPublisher.publishEvent(event);
+
+            log.info("Created direct conversation {} in company {}",
+                    saved.getId(), command.companyId().companyId());
+            return saved;
+
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException(e.getMessage());
+        } catch (Exception e) {
+            log.error("Error creating direct conversation: {}", e.getMessage(), e);
+            throw new ValidationException("Error creating direct conversation: " + e.getMessage());
         }
     }
 

@@ -29,6 +29,7 @@ public class GroupResourceFromEntityAssembler {
                 entity.getDescription(),
                 entity.getImageUrl(),
                 entity.getVisibility().name(), // Convert enum to string
+                entity.getType() == null ? "GROUP" : entity.getType().name(), // null = legacy group
                 memberUUIDs,
                 entity.getMembers().size(),
                 entity.getCreatedBy().userId(), // Convert UserId to UUID

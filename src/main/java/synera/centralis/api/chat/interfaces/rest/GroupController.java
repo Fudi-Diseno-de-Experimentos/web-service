@@ -101,10 +101,12 @@ public class GroupController {
         var getGroupByIdQuery = new GetGroupByIdQuery(groupId, companyId);
         var group = groupQueryService.handle(getGroupByIdQuery);
         
-        if (group.isEmpty()) {
+        // Las conversaciones directas no se exponen por la API de grupos:
+        // tienen su propio recurso en /api/v1/conversations.
+        if (group.isEmpty() || group.get().isDirect()) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        
+
         var groupResource = GroupResourceFromEntityAssembler.toResourceFromEntity(group.get());
         return new ResponseEntity<>(groupResource, HttpStatus.OK);
     }
@@ -125,8 +127,9 @@ public class GroupController {
 
         var getGroupsByMemberIdQuery = new GetGroupsByMemberIdQuery(new UserId(userId), companyId);
         List<Group> groups = groupQueryService.handle(getGroupsByMemberIdQuery);
-        
+
         var groupResources = groups.stream()
+                .filter(group -> !group.isDirect())
                 .map(GroupResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
         
@@ -151,6 +154,7 @@ public class GroupController {
         var getAllGroupsQuery = new GetAllGroupsQuery(companyId);
         List<Group> allGroups = groupQueryService.handle(getAllGroupsQuery);
         List<Group> groups = allGroups.stream()
+                .filter(group -> !group.isDirect())
                 .filter(group -> group.getVisibility().equals(visibility))
                 .toList();
         

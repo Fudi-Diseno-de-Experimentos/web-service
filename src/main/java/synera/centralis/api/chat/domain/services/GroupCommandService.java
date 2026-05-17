@@ -20,6 +20,14 @@ public interface GroupCommandService {
     Group handle(CreateGroupCommand command);
 
     /**
+     * Obtiene o crea la conversación directa (1 a 1) entre dos usuarios de la
+     * misma compañía. Idempotente: reutiliza la existente si la hay.
+     * @param command el comando de conversación directa
+     * @return la conversación directa (nueva o existente)
+     */
+    Group handle(CreateDirectConversationCommand command);
+
+    /**
      * Handles updating group information (name, description, image).
      * @param command the update group command
      * @return the updated group
