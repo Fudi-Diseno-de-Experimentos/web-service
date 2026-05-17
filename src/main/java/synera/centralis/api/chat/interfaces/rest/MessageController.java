@@ -63,6 +63,22 @@ public class MessageController {
     }
 
     /**
+     * Remitente derivado SIEMPRE del JWT, nunca del cuerpo, para impedir
+     * suplantación (mismo criterio que el controlador WebSocket).
+     */
+    private UUID getCurrentUserId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            throw new UnauthorizedException("Authentication required");
+        }
+        UUID userId = iamContextFacade.fetchUserIdByUsername(authentication.getName());
+        if (userId == null) {
+            throw new UnauthorizedException("Authenticated user not found");
+        }
+        return userId;
+    }
+
+    /**
      * Creates a new message in a group.
      */
     @PostMapping
@@ -76,7 +92,14 @@ public class MessageController {
     public ResponseEntity<MessageResource> createMessage(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Valid @RequestBody CreateMessageResource resource) {
-        var createMessageCommand = CreateMessageCommandFromResourceAssembler.toCommandFromResource(groupId, resource);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
+
+        // El remitente se deriva del JWT; resource.senderId() se ignora a
+        // propósito para impedir suplantación. La pertenencia al grupo la
+        // valida MessageCommandServiceImpl.
+        UUID senderId = getCurrentUserId();
+        var createMessageCommand = CreateMessageCommandFromResourceAssembler.toCommandFromResource(groupId, senderId, resource);
         var message = messageCommandService.handle(createMessageCommand);
         
         var messageResource = MessageResourceFromEntityAssembler.toResourceFromEntity(message);

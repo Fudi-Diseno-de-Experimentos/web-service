@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import synera.centralis.api.chat.domain.model.aggregates.Group;
+import synera.centralis.api.chat.domain.model.valueobjects.GroupType;
 import synera.centralis.api.chat.domain.model.valueobjects.UserId;
 
 import java.util.List;
@@ -33,6 +34,22 @@ public interface GroupRepository extends JpaRepository<Group, UUID> {
 
     @Query("SELECT g FROM Group g JOIN g.members m WHERE m = :memberId")
     List<Group> findByMembersContaining(@Param("memberId") UserId memberId);
+
+    /**
+     * Busca la conversación directa entre dos usuarios dentro de una compañía.
+     * Las conversaciones directas tienen exactamente 2 miembros y tipo DIRECT,
+     * por lo que a lo sumo existe una por par de usuarios y compañía.
+     * @param a uno de los participantes
+     * @param b el otro participante
+     * @param companyId la compañía
+     * @return lista (0 o 1) con la conversación directa si existe
+     */
+    @Query("SELECT g FROM Group g JOIN g.members ma JOIN g.members mb "
+            + "WHERE g.type = :type AND g.companyId = :companyId AND ma = :a AND mb = :b")
+    List<Group> findDirectConversation(@Param("a") UserId a,
+                                       @Param("b") UserId b,
+                                       @Param("companyId") CompanyId companyId,
+                                       @Param("type") GroupType type);
 
     /**
      * Check if a group exists by ID.

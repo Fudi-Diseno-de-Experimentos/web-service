@@ -25,4 +25,20 @@ public class CreateMessageCommandFromResourceAssembler {
                 resource.body()
         );
     }
+
+    /**
+     * Variante segura: el remitente lo fija el controlador a partir del JWT,
+     * no del cuerpo de la petición (evita suplantación).
+     * @param groupId  grupo destino
+     * @param senderId remitente autenticado (derivado del token)
+     * @param resource recurso con el cuerpo del mensaje
+     * @return el comando de dominio
+     */
+    public static CreateMessageCommand toCommandFromResource(UUID groupId, UUID senderId, CreateMessageResource resource) {
+        return new CreateMessageCommand(
+                groupId,
+                new UserId(senderId),
+                resource.body()
+        );
+    }
 }
