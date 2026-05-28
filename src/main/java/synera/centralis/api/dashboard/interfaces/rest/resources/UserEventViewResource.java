@@ -18,6 +18,7 @@ public record UserEventViewResource(
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
         LocalDateTime viewedAt,
         String userId,
-        String userFullName
+        String userFullName,
+        String userImageUrl
 ) {
 }

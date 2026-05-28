@@ -116,6 +116,7 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
             .map(user -> new ViewsSummaryResource.TopActiveUserResource(
                 user.userId().toString(),
                 user.fullName(),
+                user.imageUrl(),
                 15L // TODO: Get actual view count for user
             ))
             .toList();
@@ -255,7 +256,7 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
         var contentInfo = externalContentService.fetchAnnouncementInfo(new AnnouncementId(contentView.getContentId()))
             .orElse(new ExternalContentInfo(contentView.getContentId(), "Unknown Announcement", "Content not found", null, null));
         var userInfo = externalUserService.fetchUserProfile(contentView.getUserId())
-            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com"));
+            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com", ""));
         
         return new UserAnnouncementViewResource(
             contentView.getId().toString(),
@@ -264,13 +265,14 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
             contentInfo.description(),
             contentView.getViewDateTime(),
             contentView.getUserId().value().toString(),
-            userInfo.fullName()
+            userInfo.fullName(),
+            userInfo.imageUrl()
         );
     }
 
     private AnnouncementViewerResource toAnnouncementViewerResource(ContentView contentView) {
         var userInfo = externalUserService.fetchUserProfile(contentView.getUserId())
-            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com"));
+            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com", ""));
         var contentInfo = externalContentService.fetchAnnouncementInfo(new AnnouncementId(contentView.getContentId()))
             .orElse(new ExternalContentInfo(contentView.getContentId(), "Unknown Announcement", "Content not found", null, null));
         
@@ -279,6 +281,7 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
             contentView.getUserId().value().toString(),
             userInfo.fullName(),
             userInfo.email(),
+            userInfo.imageUrl(),
             contentView.getViewDateTime(),
             contentView.getContentId().toString(),
             contentInfo.title()
@@ -289,7 +292,7 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
         var contentInfo = externalContentService.fetchEventInfo(new EventId(contentView.getContentId()))
             .orElse(new ExternalContentInfo(contentView.getContentId(), "Unknown Event", "Event not found", "Unknown Location", LocalDateTime.now()));
         var userInfo = externalUserService.fetchUserProfile(contentView.getUserId())
-            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com"));
+            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com", ""));
         
         return new UserEventViewResource(
             contentView.getId().toString(),
@@ -300,13 +303,14 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
             contentInfo.location(),
             contentView.getViewDateTime(),
             contentView.getUserId().value().toString(),
-            userInfo.fullName()
+            userInfo.fullName(),
+            userInfo.imageUrl()
         );
     }
 
     private EventViewerResource toEventViewerResource(ContentView contentView) {
         var userInfo = externalUserService.fetchUserProfile(contentView.getUserId())
-            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com"));
+            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com", ""));
         var contentInfo = externalContentService.fetchEventInfo(new EventId(contentView.getContentId()))
             .orElse(new ExternalContentInfo(contentView.getContentId(), "Unknown Event", "Event not found", "Unknown Location", LocalDateTime.now()));
         
@@ -315,6 +319,7 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
             contentView.getUserId().value().toString(),
             userInfo.fullName(),
             userInfo.email(),
+            userInfo.imageUrl(),
             contentView.getViewDateTime(),
             contentView.getContentId().toString(),
             contentInfo.title()
