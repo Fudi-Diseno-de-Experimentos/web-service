@@ -23,6 +23,7 @@ public record ViewsSummaryResource(
     public record TopActiveUserResource(
             String userId,
             String userFullName,
+            String userImageUrl,
             long totalViews
     ) {}
 }

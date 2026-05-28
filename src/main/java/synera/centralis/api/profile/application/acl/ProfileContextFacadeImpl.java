@@ -71,9 +71,9 @@ public class ProfileContextFacadeImpl implements ProfileContextFacade {
             if (profile.isPresent()) {
                 var p = profile.get();
                 return java.util.Optional.of(new ProfileContextFacade.ProfileData(
-                    p.getFirstName(),
-                    p.getLastName(),
-                    p.getEmail()
+                    p.getFullName(),
+                    p.getEmail(),
+                    p.getAvatarUrl()
                 ));
             }
             

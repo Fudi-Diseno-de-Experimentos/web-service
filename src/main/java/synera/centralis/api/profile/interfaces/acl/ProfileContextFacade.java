@@ -34,8 +34,8 @@ public interface ProfileContextFacade {
      * Profile data record for external access
      */
     record ProfileData(
-        String firstName,
-        String lastName,
-        String email
+        String fullName,
+        String email,
+        String imageUrl
     ) {}
 }

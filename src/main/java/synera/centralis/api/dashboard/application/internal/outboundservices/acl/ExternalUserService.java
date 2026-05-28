@@ -46,12 +46,12 @@ public class ExternalUserService {
                 
                 if (profileData.isPresent()) {
                     var profile = profileData.get();
-                    String displayName = profile.firstName() + " " + profile.lastName();
                     
                     return Optional.of(new ExternalUserProfile(
                         userId.value(),
-                        displayName, // Real full name from Profile context
-                        profile.email() // Real email from Profile context
+                        profile.fullName(), // Real full name from Profile context
+                        profile.email(), // Real email from Profile context
+                        profile.imageUrl() // Real image URL from Profile context
                     ));
                 }
             } else {
@@ -61,7 +61,8 @@ public class ExternalUserService {
                     return Optional.of(new ExternalUserProfile(
                         userId.value(),
                         username,
-                        username + "@empresa.com"
+                        username + "@empresa.com",
+                        ""
                     ));
                 }
             }
@@ -149,7 +150,8 @@ public class ExternalUserService {
         return Optional.of(new ExternalUserProfile(
             userId.value(),
             "Mock User " + userId.value().toString().substring(0, 8),
-            "user." + userId.value().toString().substring(0, 8) + "@empresa.com"
+            "user." + userId.value().toString().substring(0, 8) + "@empresa.com",
+            ""
         ));
     }
 
@@ -158,17 +160,20 @@ public class ExternalUserService {
             new ExternalUserProfile(
                 UUID.randomUUID(),
                 "Juan Pérez",
-                "juan.perez@empresa.com"
+                "juan.perez@empresa.com",
+                ""
             ),
             new ExternalUserProfile(
                 UUID.randomUUID(),
                 "María García",
-                "maria.garcia@empresa.com"
+                "maria.garcia@empresa.com",
+                ""
             ),
             new ExternalUserProfile(
                 UUID.randomUUID(),
                 "Carlos López",
-                "carlos.lopez@empresa.com"
+                "carlos.lopez@empresa.com",
+                ""
             )
         ).subList(0, Math.min(limit, 3));
     }
