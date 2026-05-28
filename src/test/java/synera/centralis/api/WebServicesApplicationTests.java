@@ -1,10 +1,9 @@
 package synera.centralis.api;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import synera.centralis.api.shared.AbstractIntegrationTest;
 
-@SpringBootTest
-class WebServicesApplicationTests {
+class WebServicesApplicationTests extends AbstractIntegrationTest {
 
 	@Test
 	void contextLoads() {
