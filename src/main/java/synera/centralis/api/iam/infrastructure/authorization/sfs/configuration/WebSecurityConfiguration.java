@@ -119,7 +119,8 @@ public class WebSecurityConfiguration {
                                 "/api/v1/comments/**",
                                 "/api/v1/sse/**",   // Permitir endpoints SSE sin autenticación
                                 "/ws-chat/**",      // WebSocket handshake — la auth JWT se hace en STOMP CONNECT
-                                "/webjars/**").permitAll()
+                                "/webjars/**",
+                                "/health").permitAll()
                         .anyRequest().authenticated());
         http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(authorizationRequestFilter(), UsernamePasswordAuthenticationFilter.class);
