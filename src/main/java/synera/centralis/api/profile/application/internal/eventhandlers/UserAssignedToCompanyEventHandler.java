@@ -19,7 +19,7 @@ public class UserAssignedToCompanyEventHandler {
     @EventListener
     public void on(UserAssignedToCompanyEvent event) {
         var userId = new UserId(event.userId());
-        var profileOpt = profileRepository.findByUserId(userId);
+        var profileOpt = profileRepository.findFirstByUserId(userId);
         
         if (profileOpt.isPresent()) {
             var profile = profileOpt.get();

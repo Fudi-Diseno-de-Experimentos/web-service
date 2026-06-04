@@ -4,10 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import synera.centralis.api.profile.domain.model.aggregates.Profile;
-import synera.centralis.api.profile.domain.model.queries.GetAllProfilesQuery;
-import synera.centralis.api.profile.domain.model.queries.GetProfileByIdQuery;
-import synera.centralis.api.profile.domain.model.queries.GetProfileByUserIdQuery;
-import synera.centralis.api.profile.domain.model.queries.GetProfilesByCompanyIdQuery;
+import synera.centralis.api.profile.domain.model.queries.*;
 
 /**
  * Profile query service
@@ -42,4 +39,11 @@ public interface ProfileQueryService {
      * @return list of profiles for that company
      */
     List<Profile> handle(GetProfilesByCompanyIdQuery query);
+
+    /**
+     * Handle get profiles without company query
+     * @param query the query
+     * @return list of profiles without company
+     */
+    List<Profile> handle(GetProfilesWithoutCompanyQuery query);
 }

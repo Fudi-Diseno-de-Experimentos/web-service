@@ -175,6 +175,24 @@ public class ProfileController {
         return ResponseEntity.ok(profileResources);
     }
 
+    @GetMapping("/no-company")
+    @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
+    @Operation(summary = "Get profiles without company", description = "Retrieve all profiles that are not assigned to any company.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "200", description = "Profiles retrieved successfully",
+                content = @Content(mediaType = "application/json", schema = @Schema(implementation = ProfileResource.class)))
+    })
+    public ResponseEntity<List<ProfileResource>> getProfilesWithoutCompany() {
+        var query = new synera.centralis.api.profile.domain.model.queries.GetProfilesWithoutCompanyQuery();
+        var profiles = profileQueryService.handle(query);
+        
+        var profileResources = profiles.stream()
+                .map(ProfileResourceFromEntityAssembler::toResourceFromEntity)
+                .toList();
+        
+        return ResponseEntity.ok(profileResources);
+    }
+
     @GetMapping("/company/{companyId}")
     @Operation(summary = "Get all profiles by company", description = "Retrieve all profiles for a given company ID")
     @ApiResponses(value = {
