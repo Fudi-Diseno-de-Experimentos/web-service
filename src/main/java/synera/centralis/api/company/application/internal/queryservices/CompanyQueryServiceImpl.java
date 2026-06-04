@@ -33,7 +33,7 @@ public class CompanyQueryServiceImpl implements CompanyQueryService {
 
     @Override
     public Optional<Company> handle(GetCompanyByUserIdQuery query) {
-        return companyRepository.findByUserId(query.userId());
+        return companyRepository.findFirstByUserId(query.userId());
     }
 
     @Override

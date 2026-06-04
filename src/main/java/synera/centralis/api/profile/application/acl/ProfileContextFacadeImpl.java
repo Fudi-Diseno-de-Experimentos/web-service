@@ -66,7 +66,7 @@ public class ProfileContextFacadeImpl implements ProfileContextFacade {
         try {
             UUID userId = UUID.fromString(userIdStr);
             var userIdObj = new UserId(userId);
-            var profile = profileRepository.findByUserId(userIdObj);
+            var profile = profileRepository.findFirstByUserId(userIdObj);
             
             if (profile.isPresent()) {
                 var p = profile.get();

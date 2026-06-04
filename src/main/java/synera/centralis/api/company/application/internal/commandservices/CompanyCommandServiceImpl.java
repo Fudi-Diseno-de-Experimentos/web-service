@@ -1,6 +1,7 @@
 package synera.centralis.api.company.application.internal.commandservices;
 
 import org.springframework.stereotype.Service;
+import org.springframework.context.ApplicationEventPublisher;
 import synera.centralis.api.company.domain.model.aggregates.Company;
 import synera.centralis.api.company.domain.model.commands.CreateCompanyCommand;
 import synera.centralis.api.company.domain.model.commands.DeleteCompanyCommand;
@@ -10,20 +11,33 @@ import synera.centralis.api.company.infrastructure.persistence.jpa.repositories.
 
 import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
 import synera.centralis.api.shared.domain.exceptions.ValidationException;
+import synera.centralis.api.shared.domain.events.CompanyCreatedEvent;
 
 @Service
 public class CompanyCommandServiceImpl implements CompanyCommandService {
 
     private final CompanyRepository companyRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public CompanyCommandServiceImpl(CompanyRepository companyRepository) {
+    public CompanyCommandServiceImpl(CompanyRepository companyRepository, ApplicationEventPublisher eventPublisher) {
         this.companyRepository = companyRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
     public Company handle(CreateCompanyCommand command) {
+        if (command.userId() != null) {
+            var userId = new synera.centralis.api.company.domain.model.valueobjects.UserId(command.userId());
+            if (companyRepository.findFirstByUserId(userId).isPresent()) {
+                throw new ValidationException("User already has a company assigned or created");
+            }
+        }
         var company = new Company(command);
-        return companyRepository.save(company);
+        var savedCompany = companyRepository.save(company);
+        if (command.userId() != null) {
+            eventPublisher.publishEvent(CompanyCreatedEvent.create(savedCompany.getId(), command.userId()));
+        }
+        return savedCompany;
     }
 
     @Override

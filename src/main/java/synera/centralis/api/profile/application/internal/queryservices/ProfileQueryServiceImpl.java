@@ -14,6 +14,7 @@ import synera.centralis.api.profile.domain.model.queries.GetAllProfilesQuery;
 import synera.centralis.api.profile.domain.model.queries.GetProfileByIdQuery;
 import synera.centralis.api.profile.domain.model.queries.GetProfileByUserIdQuery;
 import synera.centralis.api.profile.domain.model.queries.GetProfilesByCompanyIdQuery;
+import synera.centralis.api.profile.domain.model.queries.GetProfilesWithoutCompanyQuery;
 import synera.centralis.api.profile.domain.services.ProfileQueryService;
 import synera.centralis.api.profile.infrastructure.persistence.jpa.repositories.ProfileRepository;
 
@@ -46,7 +47,7 @@ public class ProfileQueryServiceImpl implements ProfileQueryService {
         // FindByUserId already implies specific user so we may not need to filter,
         // but for extreme security we could check if profile.getCompanyId() matches.
         // It's probably safe since the user has to exist.
-        return profileRepository.findByUserId(query.userId());
+        return profileRepository.findFirstByUserId(query.userId());
     }
 
     @Override
@@ -70,5 +71,11 @@ public class ProfileQueryServiceImpl implements ProfileQueryService {
             }
         }
         return profileRepository.findAllByCompanyId(query.companyId());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Profile> handle(GetProfilesWithoutCompanyQuery query) {
+        return profileRepository.findAllByCompanyIdIsNull();
     }
 }
