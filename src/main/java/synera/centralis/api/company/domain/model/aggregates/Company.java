@@ -53,6 +53,15 @@ public class Company extends AuditableAbstractAggregateRoot<Company> {
         return sb.toString();
     }
 
+    /**
+     * Assigns a freshly generated join code. Used by the command service to
+     * resolve the rare collision against the {@code unique} constraint before
+     * persisting, instead of letting the insert blow up with a raw 500.
+     */
+    public void regenerateJoinCode() {
+        this.joinCode = generateJoinCode();
+    }
+
     public Company update(String ruc, String nombre, String iconUrl, boolean isActive) {
         this.ruc = ruc;
         this.nombre = nombre;
