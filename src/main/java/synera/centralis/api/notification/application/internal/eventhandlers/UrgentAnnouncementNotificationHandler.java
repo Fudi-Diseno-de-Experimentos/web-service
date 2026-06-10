@@ -7,7 +7,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.event.TransactionPhase;
-import synera.centralis.api.iam.domain.model.aggregates.User;
 import synera.centralis.api.iam.infrastructure.persistence.jpa.repositories.UserRepository;
 import synera.centralis.api.notification.domain.model.commands.CreateNotificationCommand;
 import synera.centralis.api.notification.domain.model.valueobjects.NotificationPriority;
@@ -41,15 +40,23 @@ public class UrgentAnnouncementNotificationHandler {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handle(UrgentAnnouncementCreatedEvent event) {
         try {
-            // Get all user UUIDs to notify
-            var allUsers = userRepository.findAll();
+            if (event.companyId() == null) {
+                log.warn("Urgent announcement {} has no company; skipping notification fan-out",
+                        event.announcementId());
+                return;
+            }
 
-            var allUserIds = allUsers.stream()
+            // Only notify users belonging to the announcing company, not every
+            // user in the system.
+            var recipients = userRepository.findAllByCompanyId(event.companyId());
+
+            var recipientIds = recipients.stream()
                     .map(user -> user.getId().toString()) // Use User entity ID (UUID)
                     .toList();
 
-            if (allUserIds.isEmpty()) {
-                log.warn("No users found to notify for urgent announcement");
+            if (recipientIds.isEmpty()) {
+                log.warn("No users found in company {} to notify for urgent announcement",
+                        event.companyId());
                 return;
             }
 
@@ -57,7 +64,7 @@ public class UrgentAnnouncementNotificationHandler {
             var command = new CreateNotificationCommand(
                     "Urgent: " + event.title(),
                     event.content(),
-                    allUserIds,
+                    recipientIds,
                     NotificationPriority.HIGH
             );
 
@@ -65,7 +72,8 @@ public class UrgentAnnouncementNotificationHandler {
             var result = notificationCommandService.handle(command);
 
             if (result.isPresent()) {
-                log.info("Urgent announcement notification created for {} users", allUserIds.size());
+                log.info("Urgent announcement notification created for {} users in company {}",
+                        recipientIds.size(), event.companyId());
             } else {
                 log.error("Failed to create urgent announcement notification");
             }

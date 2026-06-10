@@ -74,10 +74,10 @@ public class EventCommandServiceImpl implements EventCommandService {
                             .collect(Collectors.toSet());
 
             log.info("Recipients count: {}", recipientIds.size());
-            log.info("👥 Recipient IDs: {}", recipientIds);
+            log.info("Recipient IDs: {}", recipientIds);
 
             // Publish event created domain event for notifications
-            log.info("🚀 PUBLISHING EVENT CREATED EVENT for event: {}", savedEvent.getId());
+            log.info("PUBLISHING EVENT CREATED EVENT for event: {}", savedEvent.getId());
 
             var domainEvent = EventCreatedEvent.create(
                 savedEvent.getId(),
@@ -88,9 +88,9 @@ public class EventCommandServiceImpl implements EventCommandService {
                 recipientIds
             );
 
-            log.info("📋 Domain event created: {}", domainEvent.toString());
+            log.info("Domain event created: {}", domainEvent.toString());
             eventPublisher.publishEvent(domainEvent);
-            log.info("✅ Event creation domain event published successfully");
+            log.info("Event creation domain event published successfully");
 
             log.info("Successfully created event with ID: {}", savedEvent.getId());
 

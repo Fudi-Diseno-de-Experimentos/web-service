@@ -92,6 +92,9 @@ public class MessageCommandServiceImpl implements MessageCommandService {
             
         } catch (IllegalArgumentException e) {
             throw new ValidationException(e.getMessage());
+        } catch (ResourceNotFoundException | UnauthorizedException e) {
+            // Preserve the original 404/403 semantics; do not flatten into a 400.
+            throw e;
         } catch (Exception e) {
             log.error("Error creating message: {}", e.getMessage(), e);
             throw new ValidationException("Error creating message: " + e.getMessage());

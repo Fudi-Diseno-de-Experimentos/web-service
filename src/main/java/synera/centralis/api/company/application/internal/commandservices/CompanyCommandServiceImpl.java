@@ -33,6 +33,15 @@ public class CompanyCommandServiceImpl implements CompanyCommandService {
             }
         }
         var company = new Company(command);
+        // The join code is unique-constrained; on the rare collision, regenerate
+        // before saving so we never surface a raw DataIntegrityViolation as a 500.
+        int attempts = 0;
+        while (companyRepository.findByJoinCode(company.getJoinCode()).isPresent()) {
+            if (++attempts > 10) {
+                throw new ValidationException("Could not generate a unique join code, please retry");
+            }
+            company.regenerateJoinCode();
+        }
         var savedCompany = companyRepository.save(company);
         if (command.userId() != null) {
             eventPublisher.publishEvent(CompanyCreatedEvent.create(savedCompany.getId(), command.userId()));

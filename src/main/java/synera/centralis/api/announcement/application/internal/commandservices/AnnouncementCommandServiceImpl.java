@@ -56,28 +56,24 @@ public class AnnouncementCommandServiceImpl implements AnnouncementCommandServic
             announcement.setCompanyId(command.companyId());
 
             var savedAnnouncement = announcementRepository.save(announcement);
-            
-            log.info("=== ANNOUNCEMENT CREATED ===");
-            log.info("Title: " + savedAnnouncement.getTitle());
-            log.info("Priority: " + savedAnnouncement.getPriority().level());
-            log.info("Is Urgent: " + savedAnnouncement.getPriority().isUrgent());
+
+            log.debug("Announcement created: title='{}', priority={}, urgent={}",
+                    savedAnnouncement.getTitle(),
+                    savedAnnouncement.getPriority().level(),
+                    savedAnnouncement.getPriority().isUrgent());
 
             // Publish event if announcement is urgent
             if (savedAnnouncement.getPriority().isUrgent()) {
-                log.info("🚨 PUBLISHING URGENT ANNOUNCEMENT EVENT for: " + savedAnnouncement.getTitle());
-
                 var event = UrgentAnnouncementCreatedEvent.create(
                     savedAnnouncement.getId(),
                     savedAnnouncement.getTitle(),
                     savedAnnouncement.getDescription(),
-                    savedAnnouncement.getCreatedBy()
+                    savedAnnouncement.getCreatedBy(),
+                    savedAnnouncement.getCompanyId()
                 );
 
-                log.info("🚀 Event created: " + event.toString());
                 eventPublisher.publishEvent(event);
-                log.info("✅ Event published successfully");
-            } else {
-                log.info("ℹ️ Announcement is not urgent, no event will be published");
+                log.debug("Published UrgentAnnouncementCreatedEvent for announcement {}", savedAnnouncement.getId());
             }
 
             return savedAnnouncement;

@@ -172,15 +172,15 @@ public class MessageController {
     public ResponseEntity<List<MessageResource>> getMessagesByStatus(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Parameter(description = "Message status (SENT/EDITED/DELETED)", required = true) @PathVariable MessageStatus status) {
-        var getMessagesByStatusQuery = new GetMessagesByStatusQuery(status);
+        // Scope the query to the group at the database level instead of loading
+        // every message of this status and filtering in memory.
+        var getMessagesByStatusQuery = new GetMessagesByStatusQuery(groupId, status);
         List<Message> messages = messageQueryService.handle(getMessagesByStatusQuery);
-        
-        // Filter messages by group ID
+
         var groupMessages = messages.stream()
-                .filter(message -> message.getGroupId().equals(groupId))
                 .map(MessageResourceFromEntityAssembler::toResourceFromEntity)
                 .toList();
-        
+
         return new ResponseEntity<>(groupMessages, HttpStatus.OK);
     }
 

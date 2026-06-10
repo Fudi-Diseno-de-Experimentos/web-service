@@ -6,6 +6,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import synera.centralis.api.company.application.internal.commandservices.CompanyCommandServiceImpl;
 import synera.centralis.api.company.domain.model.aggregates.Company;
 import synera.centralis.api.company.domain.model.commands.CreateCompanyCommand;
@@ -32,6 +33,9 @@ class CompanyUnitTest {
 
     @Mock
     private CompanyRepository companyRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private CompanyCommandServiceImpl companyCommandService;
