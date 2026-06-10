@@ -3,6 +3,8 @@ package synera.centralis.api.iam.application.internal.commandservices;
 import java.util.Optional;
 
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import synera.centralis.api.iam.application.internal.outboundservices.hashing.HashingService;
@@ -31,6 +33,8 @@ import synera.centralis.api.shared.domain.exceptions.DuplicateResourceException;
  */
 @Service
 public class UserCommandServiceImpl implements UserCommandService {
+
+    private static final Logger log = LoggerFactory.getLogger(UserCommandServiceImpl.class);
 
     private final UserRepository userRepository;
     private final HashingService hashingService;
@@ -106,15 +110,15 @@ public class UserCommandServiceImpl implements UserCommandService {
 
             if (profileCreated.isEmpty()) {
                 // Log warning but don't fail user creation
-                System.err.println("Warning: Failed to create profile for user " + savedUser.getId());
+                log.warn("Failed to create profile for user {}", savedUser.getId());
             }
         } catch (Exception e) {
             // Log error but don't fail user creation
-            System.err.println("Error creating profile for user " + savedUser.getId() + ": " + e.getMessage());
+            log.error("Error creating profile for user {}: {}", savedUser.getId(), e.getMessage(), e);
         }
-        
-        return userRepository.findByUsername(command.username())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found after save"));
+
+        // The saved entity already reflects the persisted state; no need to re-query.
+        return savedUser;
     }
 
     /**
