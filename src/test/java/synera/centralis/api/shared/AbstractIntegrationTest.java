@@ -2,6 +2,8 @@ package synera.centralis.api.shared;
 
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import synera.centralis.api.notification.application.outboundservices.FirebaseCloudMessagingService;
 import synera.centralis.api.notification.infrastructure.messaging.config.FirebaseConfiguration;
 
@@ -23,4 +25,9 @@ public abstract class AbstractIntegrationTest {
 
     @MockBean
     protected FirebaseCloudMessagingService firebaseCloudMessagingService;
+
+    @DynamicPropertySource
+    static void datasourceProperties(DynamicPropertyRegistry registry) {
+        TestDatasourceProperties.apply(registry);
+    }
 }
