@@ -3,6 +3,8 @@ package synera.centralis.api.chat.domain.model.aggregates;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import synera.centralis.api.chat.domain.model.valueobjects.GroupType;
 import synera.centralis.api.chat.domain.model.valueobjects.GroupVisibility;
 import synera.centralis.api.chat.domain.model.valueobjects.UserId;
@@ -49,7 +51,10 @@ public class Group extends AuditableAbstractAggregateRoot<Group> {
     @AttributeOverride(name = "userId", column = @Column(name = "created_by"))
     private UserId createdBy;
 
-    @ElementCollection
+    // Eager + subselect: assemblers read this collection after the transaction
+    // closes (open-in-view is disabled), and subselect avoids N+1 on list queries.
+    @ElementCollection(fetch = FetchType.EAGER)
+    @Fetch(FetchMode.SUBSELECT)
     @CollectionTable(name = "group_members", joinColumns = @JoinColumn(name = "group_id"))
     @AttributeOverride(name = "userId", column = @Column(name = "user_id"))
     private Set<UserId> members = new HashSet<>();
