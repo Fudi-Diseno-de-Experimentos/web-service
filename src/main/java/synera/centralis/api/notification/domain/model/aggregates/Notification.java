@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import synera.centralis.api.notification.domain.model.valueobjects.NotificationPriority;
 import synera.centralis.api.notification.domain.model.valueobjects.NotificationStatus;
 import synera.centralis.api.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
@@ -24,7 +26,10 @@ public class Notification extends AuditableAbstractAggregateRoot<Notification> {
 	@Column(nullable = false, length = 2000)
 	private String message;
 
-	@ElementCollection
+	// Eager + subselect: recipients are read after the transaction closes
+	// (open-in-view is disabled), and subselect avoids N+1 on list queries.
+	@ElementCollection(fetch = FetchType.EAGER)
+	@Fetch(FetchMode.SUBSELECT)
 	@CollectionTable(name = "notification_recipients", joinColumns = @JoinColumn(name = "notification_id"))
 	@Column(name = "recipient_id")
 	private List<String> recipients; // Stores User UUIDs as strings

@@ -3,6 +3,8 @@ package synera.centralis.api.event.domain.model.agreggates;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 import synera.centralis.api.event.domain.model.valueobjects.UserId;
 import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 import synera.centralis.api.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
@@ -39,7 +41,10 @@ public class Event extends AuditableAbstractAggregateRoot<Event> {
     @AttributeOverride(name = "userId", column = @Column(name = "created_by"))
     private UserId createdBy;
 
-    @ElementCollection
+    // Eager + subselect: assemblers read this collection after the transaction
+    // closes (open-in-view is disabled), and subselect avoids N+1 on list queries.
+    @ElementCollection(fetch = FetchType.EAGER)
+    @Fetch(FetchMode.SUBSELECT)
     @CollectionTable(name = "event_recipients", joinColumns = @JoinColumn(name = "event_id"))
     @AttributeOverride(name = "userId", column = @Column(name = "user_id"))
     private Set<UserId> recipients = new HashSet<>();
