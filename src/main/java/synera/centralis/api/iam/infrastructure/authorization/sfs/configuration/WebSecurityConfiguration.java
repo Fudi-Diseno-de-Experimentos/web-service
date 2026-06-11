@@ -98,7 +98,7 @@ public class WebSecurityConfiguration {
             
             // Para endpoints SSE: sin credentials, wildcard permitido
             cors.setAllowedOriginPatterns(List.of("*"));
-            cors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE"));
+            cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
             cors.setAllowedHeaders(List.of("*"));
             cors.setAllowCredentials(true); // Necesario para endpoints autenticados
             
