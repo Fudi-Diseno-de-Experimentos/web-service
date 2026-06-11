@@ -19,6 +19,9 @@ import synera.centralis.api.company.interfaces.rest.resources.UpdateCompanyResou
 import synera.centralis.api.company.interfaces.rest.transform.CompanyResourceFromEntityAssembler;
 import synera.centralis.api.company.interfaces.rest.transform.CreateCompanyCommandFromResourceAssembler;
 import synera.centralis.api.company.interfaces.rest.transform.UpdateCompanyCommandFromResourceAssembler;
+import synera.centralis.api.iam.infrastructure.authorization.sfs.utils.SecurityUtils;
+import synera.centralis.api.shared.domain.exceptions.UnauthorizedException;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import java.util.List;
 import java.util.UUID;
@@ -77,6 +80,7 @@ public class CompanyController {
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
     public ResponseEntity<CompanyResource> updateCompany(@PathVariable UUID id, @RequestBody UpdateCompanyResource resource) {
+        verifyOwnership(id);
         var updateCompanyCommand = UpdateCompanyCommandFromResourceAssembler.toCommandFromResource(id, resource);
         var updatedCompany = companyCommandService.handle(updateCompanyCommand);
         
@@ -87,8 +91,23 @@ public class CompanyController {
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('ROLE_ADMIN', 'ROLE_MANAGER')")
     public ResponseEntity<?> deleteCompany(@PathVariable UUID id) {
+        verifyOwnership(id);
         var deleteCompanyCommand = new DeleteCompanyCommand(id);
         companyCommandService.handle(deleteCompanyCommand);
         return ResponseEntity.ok("Company deleted successfully.");
+    }
+
+    /**
+     * Ensures the authenticated user may only mutate their own company.
+     * Prevents an admin/manager of one company from updating or deleting another.
+     */
+    private void verifyOwnership(UUID companyId) {
+        CompanyId currentCompanyId = SecurityUtils.getCurrentCompanyId();
+        if (currentCompanyId == null || currentCompanyId.companyId() == null) {
+            throw new UnauthorizedException("User is not associated with a company");
+        }
+        if (!currentCompanyId.companyId().equals(companyId)) {
+            throw new UnauthorizedException("You are not allowed to manage another company");
+        }
     }
 }

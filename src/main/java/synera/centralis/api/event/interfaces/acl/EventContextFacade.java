@@ -1,5 +1,7 @@
 package synera.centralis.api.event.interfaces.acl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import synera.centralis.api.event.domain.model.queries.GetAllEventsQuery;
@@ -26,6 +28,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class EventContextFacade {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(EventContextFacade.class);
 
     private final EventQueryService eventQueryService;
     private final IamContextFacade iamContextFacade;
@@ -103,7 +107,7 @@ public class EventContextFacade {
             var result = eventQueryService.handle(query);
             return result.isPresent();
         } catch (Exception e) {
-            System.err.println("Error checking if event exists " + eventId + ": " + e.getMessage());
+            LOGGER.error("Error checking if event exists {}: {}", eventId, e.getMessage(), e);
             return false;
         }
     }
@@ -134,7 +138,7 @@ public class EventContextFacade {
                 event.getDate()
             ));
         } catch (Exception e) {
-            System.err.println("Error getting most viewed event: " + e.getMessage());
+            LOGGER.error("Error getting most viewed event: {}", e.getMessage(), e);
             return Optional.empty();
         }
     }
@@ -256,7 +260,7 @@ public class EventContextFacade {
                 );
             }
         } catch (Exception e) {
-            System.err.println("Error getting event participation stats for " + eventId + ": " + e.getMessage());
+            LOGGER.error("Error getting event participation stats for {}: {}", eventId, e.getMessage(), e);
             // Fallback to minimal stats if there's an error
             return Map.of(
                 "registered", 0L,

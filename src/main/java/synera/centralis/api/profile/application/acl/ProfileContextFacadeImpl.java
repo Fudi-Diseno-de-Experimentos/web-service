@@ -1,5 +1,7 @@
 package synera.centralis.api.profile.application.acl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import synera.centralis.api.profile.domain.model.commands.CreateProfileCommand;
@@ -16,6 +18,8 @@ import java.util.UUID;
  */
 @Service
 public class ProfileContextFacadeImpl implements ProfileContextFacade {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProfileContextFacadeImpl.class);
 
     private final ProfileCommandService profileCommandService;
     private final ProfileRepository profileRepository;
@@ -44,7 +48,7 @@ public class ProfileContextFacadeImpl implements ProfileContextFacade {
             return profile == null ? 0L : profile.getId().getMostSignificantBits();
         } catch (Exception e) {
             // Log error and return 0 to indicate failure
-            System.err.println("Failed to create profile for user " + userIdStr + ": " + e.getMessage());
+            LOGGER.error("Failed to create profile for user {}: {}", userIdStr, e.getMessage(), e);
             return 0L;
         }
     }
@@ -56,7 +60,7 @@ public class ProfileContextFacadeImpl implements ProfileContextFacade {
             var userIdObj = new UserId(userId);
             return profileRepository.existsByUserId(userIdObj);
         } catch (Exception e) {
-            System.err.println("Failed to check profile for user " + userIdStr + ": " + e.getMessage());
+            LOGGER.error("Failed to check profile for user {}: {}", userIdStr, e.getMessage(), e);
             return false;
         }
     }
@@ -79,7 +83,7 @@ public class ProfileContextFacadeImpl implements ProfileContextFacade {
             
             return java.util.Optional.empty();
         } catch (Exception e) {
-            System.err.println("Failed to get profile for user " + userIdStr + ": " + e.getMessage());
+            LOGGER.error("Failed to get profile for user {}: {}", userIdStr, e.getMessage(), e);
             return java.util.Optional.empty();
         }
     }

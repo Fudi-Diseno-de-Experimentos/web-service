@@ -1,5 +1,7 @@
 package synera.centralis.api.chat.application.internal.queryservices;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import synera.centralis.api.chat.domain.model.entities.ChatImage;
@@ -18,6 +20,8 @@ import java.util.Optional;
 @Service
 public class ChatImageQueryServiceImpl implements ChatImageQueryService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatImageQueryServiceImpl.class);
+
     private final ChatImageRepository chatImageRepository;
 
     public ChatImageQueryServiceImpl(ChatImageRepository chatImageRepository) {
@@ -30,7 +34,7 @@ public class ChatImageQueryServiceImpl implements ChatImageQueryService {
         try {
             return chatImageRepository.findVisibleByImageId(query.imageId());
         } catch (Exception e) {
-            System.err.println("Error retrieving chat image by ID: " + e.getMessage());
+            LOGGER.error("Error retrieving chat image by ID: {}", e.getMessage(), e);
             return Optional.empty();
         }
     }
@@ -41,7 +45,7 @@ public class ChatImageQueryServiceImpl implements ChatImageQueryService {
         try {
             return chatImageRepository.findVisibleByGroupIdOrderBySentAtDesc(query.groupId());
         } catch (Exception e) {
-            System.err.println("Error retrieving chat images by group ID: " + e.getMessage());
+            LOGGER.error("Error retrieving chat images by group ID: {}", e.getMessage(), e);
             return List.of();
         }
     }
