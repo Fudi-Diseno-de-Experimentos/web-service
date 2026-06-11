@@ -6,8 +6,12 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
+import synera.centralis.api.iam.infrastructure.authorization.sfs.utils.SecurityUtils;
+import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
+import synera.centralis.api.shared.domain.exceptions.UnauthorizedException;
 import synera.centralis.api.notification.domain.model.commands.CreateNotificationCommand;
 import synera.centralis.api.notification.domain.model.commands.UpdateNotificationStatusCommand;
 import synera.centralis.api.notification.domain.model.queries.GetNotificationByIdQuery;
@@ -27,18 +31,49 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/notifications")
+@PreAuthorize("isAuthenticated()")
 @Tag(name = "Notifications", description = "Notification management endpoints")
 public class NotificationController {
-    
+
     private final NotificationQueryService notificationQueryService;
     private final NotificationCommandService notificationCommandService;
-    
+    private final IamContextFacade iamContextFacade;
+
     public NotificationController(NotificationQueryService notificationQueryService,
-                                NotificationCommandService notificationCommandService) {
+                                NotificationCommandService notificationCommandService,
+                                IamContextFacade iamContextFacade) {
         this.notificationQueryService = notificationQueryService;
         this.notificationCommandService = notificationCommandService;
+        this.iamContextFacade = iamContextFacade;
     }
-    
+
+    /**
+     * Resolves the authenticated caller's user id (as stored in notification recipients).
+     */
+    private String currentUserId() {
+        var currentUser = SecurityUtils.getCurrentUser();
+        if (currentUser == null) {
+            throw new UnauthorizedException("User not authenticated");
+        }
+        var userId = iamContextFacade.fetchUserIdByUsername(currentUser.getUsername());
+        if (userId == null) {
+            throw new UnauthorizedException("User not found");
+        }
+        return userId.toString();
+    }
+
+    /**
+     * Ensures the caller may only access notifications addressed to them (admins may access any).
+     */
+    private void verifyRecipient(java.util.List<String> recipients) {
+        if (SecurityUtils.isAdmin()) {
+            return;
+        }
+        if (recipients == null || !recipients.contains(currentUserId())) {
+            throw new UnauthorizedException("You are not allowed to access this notification");
+        }
+    }
+
     @GetMapping("/{userId}")
     @Operation(summary = "Get notifications for a user", description = "Retrieve all notifications for a specific user")
     @ApiResponses(value = {
@@ -49,7 +84,11 @@ public class NotificationController {
     public ResponseEntity<List<NotificationResource>> getNotificationsByUserId(
             @Parameter(description = "User ID to get notifications for", required = true)
             @PathVariable String userId) {
-        
+
+        if (!SecurityUtils.isAdmin() && !currentUserId().equals(userId)) {
+            throw new UnauthorizedException("You are not allowed to access another user's notifications");
+        }
+
         var query = new GetNotificationsByUserIdQuery(userId);
         var notifications = notificationQueryService.handle(query);
         
@@ -82,12 +121,13 @@ public class NotificationController {
         
         var query = new GetNotificationStatusQuery(id);
         var notificationOpt = notificationQueryService.handle(query);
-        
+
         if (notificationOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        
+
         var notification = notificationOpt.get();
+        verifyRecipient(notification.getRecipients());
         var resource = new NotificationStatusResource(
                 notification.getId(),
                 notification.getStatus()
@@ -108,12 +148,13 @@ public class NotificationController {
         
         var query = new GetNotificationByIdQuery(id);
         var notificationOpt = notificationQueryService.handle(query);
-        
+
         if (notificationOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        
+
         var notification = notificationOpt.get();
+        verifyRecipient(notification.getRecipients());
         var resource = new NotificationResource(
                 notification.getId(),
                 notification.getTitle(),
@@ -140,7 +181,13 @@ public class NotificationController {
             @PathVariable UUID id,
             @Parameter(description = "New status for the notification", required = true)
             @Valid @RequestBody UpdateNotificationStatusResource resource) {
-        
+
+        var existing = notificationQueryService.handle(new GetNotificationByIdQuery(id));
+        if (existing.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        verifyRecipient(existing.get().getRecipients());
+
         var command = new UpdateNotificationStatusCommand(id, resource.status());
         var notificationOpt = notificationCommandService.handle(command);
         
@@ -158,7 +205,8 @@ public class NotificationController {
     }
     
     @PostMapping
-    @Operation(summary = "Create notification", description = "Create a new notification for testing purposes")
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @Operation(summary = "Create notification", description = "Create a new notification (admin only)")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "201", description = "Notification created successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid notification data")
