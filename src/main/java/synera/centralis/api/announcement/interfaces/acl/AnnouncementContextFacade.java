@@ -1,5 +1,7 @@
 package synera.centralis.api.announcement.interfaces.acl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import synera.centralis.api.announcement.domain.model.queries.GetAllAnnouncementsQuery;
@@ -26,6 +28,8 @@ import java.util.stream.Collectors;
  */
 @Service
 public class AnnouncementContextFacade {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(AnnouncementContextFacade.class);
 
     private final AnnouncementQueryService announcementQueryService;
     private final synera.centralis.api.iam.interfaces.acl.IamContextFacade iamContextFacade;
@@ -103,7 +107,7 @@ public class AnnouncementContextFacade {
             var result = announcementQueryService.handle(query);
             return result.isPresent();
         } catch (Exception e) {
-            System.err.println("Error checking if announcement exists " + announcementId + ": " + e.getMessage());
+            LOGGER.error("Error checking if announcement exists {}: {}", announcementId, e.getMessage(), e);
             return false;
         }
     }
@@ -134,7 +138,7 @@ public class AnnouncementContextFacade {
                 convertToLocalDateTime(announcement.getCreatedAt())
             ));
         } catch (Exception e) {
-            System.err.println("Error getting most viewed announcement: " + e.getMessage());
+            LOGGER.error("Error getting most viewed announcement: {}", e.getMessage(), e);
             return Optional.empty();
         }
     }

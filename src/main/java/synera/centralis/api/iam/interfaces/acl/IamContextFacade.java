@@ -7,6 +7,8 @@ import synera.centralis.api.iam.domain.model.queries.GetUserByUsernameQuery;
 import synera.centralis.api.iam.domain.services.UserCommandService;
 import synera.centralis.api.iam.domain.services.UserQueryService;
 import org.apache.logging.log4j.util.Strings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -25,6 +27,8 @@ import java.util.UUID;
  */
 @Service
 public class IamContextFacade {
+    private static final Logger LOGGER = LoggerFactory.getLogger(IamContextFacade.class);
+
     private final UserCommandService userCommandService;
     private final UserQueryService userQueryService;
 
@@ -162,7 +166,7 @@ public class IamContextFacade {
         try {
             return userQueryService.getTotalUserCount();
         } catch (Exception e) {
-            System.err.println("Error getting user count: " + e.getMessage());
+            LOGGER.error("Error getting user count: {}", e.getMessage(), e);
             return 0L; // Return 0 on error instead of mock data
         }
     }
