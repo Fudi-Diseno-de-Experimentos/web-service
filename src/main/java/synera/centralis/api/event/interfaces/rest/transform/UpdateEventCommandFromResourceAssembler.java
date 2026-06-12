@@ -18,6 +18,7 @@ public class UpdateEventCommandFromResourceAssembler {
                 resource.description(),
                 resource.date(),
                 resource.location(),
+                resource.spaceId(),
                 resource.recipientIds(),
                 companyId
         );

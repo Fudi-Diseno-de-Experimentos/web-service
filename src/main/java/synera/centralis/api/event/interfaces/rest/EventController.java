@@ -104,6 +104,7 @@ public class EventController {
                 createEventCommand.description(),
                 createEventCommand.date(),
                 createEventCommand.location(),
+                createEventCommand.spaceId(),
                 createEventCommand.recipientIds(),
                 new UserId(createdByUuid),
                 companyId

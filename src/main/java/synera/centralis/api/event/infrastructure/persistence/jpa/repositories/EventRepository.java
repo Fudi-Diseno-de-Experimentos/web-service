@@ -7,9 +7,11 @@ import org.springframework.stereotype.Repository;
 import synera.centralis.api.event.domain.model.agreggates.Event;
 import synera.centralis.api.event.domain.model.valueobjects.UserId;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+import synera.centralis.api.event.domain.model.valueobjects.SpaceId;
 import java.util.Optional;
 
 /**
@@ -79,5 +81,38 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
      */
     @Query("SELECT COUNT(e) FROM Event e JOIN e.recipients r WHERE r = :recipientId")
     long countByRecipientsContaining(@Param("recipientId") UserId recipientId);
+
+    /**
+     * Day-level booking conflict check: is there already an event in this company
+     * that books the given space on the same calendar day? The {@code [start, end)}
+     * window is the target day; {@code excludeId} lets an update skip itself (pass
+     * null on create). Clock time is intentionally ignored — only the day matters.
+     */
+    @Query("SELECT COUNT(e) > 0 FROM Event e WHERE e.companyId = :companyId AND e.spaceId = :spaceId " +
+            "AND e.date >= :start AND e.date < :end AND (:excludeId IS NULL OR e.id <> :excludeId)")
+    boolean existsBookingConflict(@Param("companyId") CompanyId companyId,
+                                  @Param("spaceId") SpaceId spaceId,
+                                  @Param("start") LocalDateTime start,
+                                  @Param("end") LocalDateTime end,
+                                  @Param("excludeId") UUID excludeId);
+
+    /**
+     * Space IDs booked within this company on a given calendar day ({@code [start, end)}).
+     * Used to compute per-day room availability.
+     */
+    @Query("SELECT e.spaceId.spaceId FROM Event e WHERE e.companyId = :companyId AND e.spaceId IS NOT NULL " +
+            "AND e.date >= :start AND e.date < :end")
+    List<UUID> findBookedSpaceIds(@Param("companyId") CompanyId companyId,
+                                  @Param("start") LocalDateTime start,
+                                  @Param("end") LocalDateTime end);
+
+    /**
+     * Does the given space have any booking at or after {@code now}? Guards space deletion.
+     */
+    @Query("SELECT COUNT(e) > 0 FROM Event e WHERE e.companyId = :companyId AND e.spaceId = :spaceId " +
+            "AND e.date >= :now")
+    boolean existsFutureBooking(@Param("companyId") CompanyId companyId,
+                                @Param("spaceId") SpaceId spaceId,
+                                @Param("now") LocalDateTime now);
 }
 

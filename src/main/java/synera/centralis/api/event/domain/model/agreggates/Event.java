@@ -7,6 +7,7 @@ import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
 import synera.centralis.api.event.domain.model.valueobjects.UserId;
 import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+import synera.centralis.api.event.domain.model.valueobjects.SpaceId;
 import synera.centralis.api.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
 
 import java.time.LocalDateTime;
@@ -52,6 +53,12 @@ public class Event extends AuditableAbstractAggregateRoot<Event> {
     @Embedded
     private CompanyId companyId;
     public void setCompanyId(CompanyId companyId) { this.companyId = companyId; }
+
+    // Optional link to a company Space (room). Null when the event is not tied
+    // to a managed room; free-text {@code location} is retained independently.
+    @Embedded
+    private SpaceId spaceId;
+    public void setSpaceId(SpaceId spaceId) { this.spaceId = spaceId; }
 
     /**
      * Constructor for creating a new event.

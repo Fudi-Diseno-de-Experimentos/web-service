@@ -17,6 +17,7 @@ public record CreateEventCommand(
         String description,
         LocalDateTime date,
         String location,
+        UUID spaceId,
         List<UUID> recipientIds,
         UserId createdBy,
         CompanyId companyId

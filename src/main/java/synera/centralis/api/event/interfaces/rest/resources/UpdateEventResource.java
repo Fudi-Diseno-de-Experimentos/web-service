@@ -27,6 +27,9 @@ public record UpdateEventResource(
         @Size(max = 500, message = "Event location cannot exceed 500 characters")
         String location,
 
+        @Schema(description = "Optional ID of the company Space (room) to book for this event")
+        UUID spaceId,
+
         @Schema(description = "List of recipient user IDs")
         List<UUID> recipientIds
 ) {

@@ -7,14 +7,19 @@ import org.springframework.stereotype.Service;
 import synera.centralis.api.event.domain.model.queries.GetAllEventsQuery;
 import synera.centralis.api.event.domain.model.queries.GetEventByIdQuery;
 import synera.centralis.api.event.domain.services.EventQueryService;
+import synera.centralis.api.event.infrastructure.persistence.jpa.repositories.EventRepository;
 import synera.centralis.api.dashboard.application.internal.outboundservices.acl.ExternalContentInfo;
 import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
 import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+import synera.centralis.api.event.domain.model.valueobjects.SpaceId;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -33,10 +38,32 @@ public class EventContextFacade {
 
     private final EventQueryService eventQueryService;
     private final IamContextFacade iamContextFacade;
+    private final EventRepository eventRepository;
 
-    public EventContextFacade(EventQueryService eventQueryService, IamContextFacade iamContextFacade) {
+    public EventContextFacade(EventQueryService eventQueryService, IamContextFacade iamContextFacade,
+                              EventRepository eventRepository) {
         this.eventQueryService = eventQueryService;
         this.iamContextFacade = iamContextFacade;
+        this.eventRepository = eventRepository;
+    }
+
+    /**
+     * Space IDs booked within the given company on the given calendar day.
+     * Used by the company context to annotate room availability.
+     */
+    public Set<UUID> findBookedSpaceIdsOnDate(CompanyId companyId, LocalDate date) {
+        if (companyId == null || date == null) return Set.of();
+        var start = date.atStartOfDay();
+        var end = start.plusDays(1);
+        return new HashSet<>(eventRepository.findBookedSpaceIds(companyId, start, end));
+    }
+
+    /**
+     * Whether the given space has any booking at or after now (guards space deletion).
+     */
+    public boolean spaceHasFutureBookings(CompanyId companyId, UUID spaceId) {
+        if (companyId == null || spaceId == null) return false;
+        return eventRepository.existsFutureBooking(companyId, new SpaceId(spaceId), LocalDateTime.now());
     }
 
     private CompanyId getCurrentCompanyId() {

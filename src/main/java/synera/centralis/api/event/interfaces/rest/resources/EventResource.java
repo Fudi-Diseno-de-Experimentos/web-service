@@ -26,6 +26,9 @@ public record EventResource(
         @Schema(description = "Location of the event", example = "Conference Room A")
         String location,
 
+        @Schema(description = "ID of the linked company Space (room), if any")
+        UUID spaceId,
+
         @Schema(description = "User ID who created the event")
         UUID createdBy,
 
