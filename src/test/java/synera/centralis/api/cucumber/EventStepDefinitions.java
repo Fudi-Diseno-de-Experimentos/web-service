@@ -43,6 +43,7 @@ public class EventStepDefinitions extends AbstractCucumberSteps {
                 + "\"title\":\"" + titulo + "\","
                 + "\"description\":\"Actividad corporativa\","
                 + "\"date\":\"2026-10-10T10:00:00\","
+                + "\"spaceId\":\"" + UUID.randomUUID() + "\","
                 + "\"recipientIds\":[" + ids + "],"
                 + "\"createdBy\":\"" + UUID.randomUUID() + "\""
                 + "}";
