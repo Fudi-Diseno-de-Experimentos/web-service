@@ -97,7 +97,7 @@ public class EventContextFacade {
                 event.getId(),
                 event.getTitle(),
                 event.getDescription(),
-                event.getLocation(),
+                null, // Events no longer carry a free-text location; they reference a Space
                 event.getDate()
             ));
         } catch (Exception e) {
@@ -161,7 +161,7 @@ public class EventContextFacade {
                 event.getId(),
                 event.getTitle(),
                 event.getDescription(),
-                event.getLocation(),
+                null, // Events no longer carry a free-text location; they reference a Space
                 event.getDate()
             ));
         } catch (Exception e) {

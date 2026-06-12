@@ -23,10 +23,7 @@ public record EventResource(
         @Schema(description = "Date and time of the event", example = "2025-02-15T14:30:00")
         LocalDateTime date,
 
-        @Schema(description = "Location of the event", example = "Conference Room A")
-        String location,
-
-        @Schema(description = "ID of the linked company Space (room), if any")
+        @Schema(description = "ID of the booked company Space (room)")
         UUID spaceId,
 
         @Schema(description = "User ID who created the event")

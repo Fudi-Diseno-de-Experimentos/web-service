@@ -15,7 +15,6 @@ public class CreateEventCommandFromResourceAssembler {
                 resource.title(),
                 resource.description(),
                 resource.date(),
-                resource.location(),
                 resource.spaceId(),
                 resource.recipientIds(),
                 new UserId(resource.createdBy()),

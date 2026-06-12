@@ -49,9 +49,7 @@ public class EventCommandServiceImpl implements EventCommandService {
     @Transactional
     public Event handle(CreateEventCommand command) {
         // Day-level room booking guard, outside the try so the 409 isn't masked as a 400.
-        if (command.spaceId() != null) {
-            verifySpaceAvailable(command.companyId(), command.spaceId(), command.date(), null);
-        }
+        verifySpaceAvailable(command.companyId(), command.spaceId(), command.date(), null);
         try {
             log.info("Creating new event with title: {}", command.title());
 
@@ -59,15 +57,12 @@ public class EventCommandServiceImpl implements EventCommandService {
                     command.title(),
                     command.description(),
                     command.date(),
-                    command.location(),
+                    new SpaceId(command.spaceId()),
                     command.recipientIds(),
                     command.createdBy()
             );
 
             event.setCompanyId(command.companyId());
-            if (command.spaceId() != null) {
-                event.setSpaceId(new SpaceId(command.spaceId()));
-            }
 
             var savedEvent = eventRepository.save(event);
 
@@ -142,12 +137,9 @@ public class EventCommandServiceImpl implements EventCommandService {
                     command.title(),
                     command.description(),
                     command.date(),
-                    command.location(),
+                    command.spaceId() != null ? new SpaceId(command.spaceId()) : null,
                     command.recipientIds()
             );
-            if (command.spaceId() != null) {
-                event.setSpaceId(new SpaceId(command.spaceId()));
-            }
 
             var updatedEvent = eventRepository.save(event);
 

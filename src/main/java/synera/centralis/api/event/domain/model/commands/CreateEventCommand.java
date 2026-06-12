@@ -16,7 +16,6 @@ public record CreateEventCommand(
         String title,
         String description,
         LocalDateTime date,
-        String location,
         UUID spaceId,
         List<UUID> recipientIds,
         UserId createdBy,
@@ -31,6 +30,9 @@ public record CreateEventCommand(
         }
         if (date == null) {
             throw new IllegalArgumentException("Event date cannot be null");
+        }
+        if (spaceId == null) {
+            throw new IllegalArgumentException("Event space cannot be null");
         }
         if (recipientIds == null || recipientIds.isEmpty()) {
             throw new IllegalArgumentException("Event must have at least one recipient");
