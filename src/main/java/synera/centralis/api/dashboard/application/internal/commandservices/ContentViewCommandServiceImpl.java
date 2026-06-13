@@ -1,7 +1,9 @@
 package synera.centralis.api.dashboard.application.internal.commandservices;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import synera.centralis.api.dashboard.application.internal.sse.ContentViewRegisteredEvent;
 import synera.centralis.api.dashboard.domain.model.aggregates.ContentView;
 import synera.centralis.api.dashboard.domain.model.commands.RegisterAnnouncementViewCommand;
 import synera.centralis.api.dashboard.domain.model.commands.RegisterEventViewCommand;
@@ -19,9 +21,12 @@ import java.util.Optional;
 public class ContentViewCommandServiceImpl implements ContentViewCommandService {
 
     private final ContentViewRepository contentViewRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    public ContentViewCommandServiceImpl(ContentViewRepository contentViewRepository) {
+    public ContentViewCommandServiceImpl(ContentViewRepository contentViewRepository,
+                                         ApplicationEventPublisher eventPublisher) {
         this.contentViewRepository = contentViewRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -46,6 +51,7 @@ public class ContentViewCommandServiceImpl implements ContentViewCommandService 
         // Create new view - first time viewing this content
         var newView = new ContentView(command);
         var savedView = contentViewRepository.save(newView);
+        eventPublisher.publishEvent(new ContentViewRegisteredEvent(this, savedView));
         return Optional.of(savedView);
     }
 
@@ -71,6 +77,7 @@ public class ContentViewCommandServiceImpl implements ContentViewCommandService 
         // Create new view - first time viewing this content
         var newView = new ContentView(command);
         var savedView = contentViewRepository.save(newView);
+        eventPublisher.publishEvent(new ContentViewRegisteredEvent(this, savedView));
         return Optional.of(savedView);
     }
 }
