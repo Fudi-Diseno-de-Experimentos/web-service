@@ -8,6 +8,7 @@ import synera.centralis.api.shared.domain.exceptions.DuplicateResourceException;
 import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
 import synera.centralis.api.shared.domain.exceptions.UnauthorizedException;
 import synera.centralis.api.shared.domain.exceptions.ValidationException;
+import synera.centralis.api.shared.domain.exceptions.ForbiddenException;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,6 +34,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<Map<String, String>> handleUnauthorizedException(UnauthorizedException ex) {
         return buildErrorResponse(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    @ExceptionHandler(ForbiddenException.class)
+    public ResponseEntity<Map<String, String>> handleForbiddenException(ForbiddenException ex) {
+        return buildErrorResponse(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

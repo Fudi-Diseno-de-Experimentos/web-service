@@ -17,6 +17,9 @@ import synera.centralis.api.announcement.infrastructure.persistence.jpa.reposito
 import synera.centralis.api.shared.domain.events.UrgentAnnouncementCreatedEvent;
 import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
 import synera.centralis.api.shared.domain.exceptions.ValidationException;
+import synera.centralis.api.shared.domain.exceptions.ForbiddenException;
+import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.UUID;
 
@@ -31,14 +34,17 @@ public class AnnouncementCommandServiceImpl implements AnnouncementCommandServic
     private final AnnouncementRepository announcementRepository;
     private final CommentRepository commentRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private final IamContextFacade iamContextFacade;
 
     @Autowired
     public AnnouncementCommandServiceImpl(AnnouncementRepository announcementRepository,
                                         CommentRepository commentRepository,
-                                        ApplicationEventPublisher eventPublisher) {
+                                        ApplicationEventPublisher eventPublisher,
+                                        IamContextFacade iamContextFacade) {
         this.announcementRepository = announcementRepository;
         this.commentRepository = commentRepository;
         this.eventPublisher = eventPublisher;
+        this.iamContextFacade = iamContextFacade;
     }
 
     @Override
@@ -91,6 +97,8 @@ public class AnnouncementCommandServiceImpl implements AnnouncementCommandServic
         var announcement = announcementRepository.findByIdAndCompanyId(command.announcementId(), command.companyId())
                 .orElseThrow(() -> new ResourceNotFoundException("Announcement not found with id: " + command.announcementId()));
 
+        verifyUpdateOrDeletePermission(announcement);
+
         try {
             announcement.update(
                 command.title(),
@@ -112,12 +120,37 @@ public class AnnouncementCommandServiceImpl implements AnnouncementCommandServic
         var announcement = announcementRepository.findByIdAndCompanyId(command.announcementId(), command.companyId())
                 .orElseThrow(() -> new ResourceNotFoundException("Announcement not found with id: " + command.announcementId()));
 
+        verifyUpdateOrDeletePermission(announcement);
+
         // Delete all comments associated with this announcement first
         commentRepository.deleteByAnnouncementId(command.announcementId());
         
         // Delete the announcement
         announcementRepository.delete(announcement);
         return true;
+    }
+
+    private void verifyUpdateOrDeletePermission(Announcement announcement) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()) {
+            throw new ForbiddenException("User not authenticated");
+        }
+
+        // 1. Check if ADMIN
+        boolean isAdmin = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+        if (isAdmin) {
+            return;
+        }
+
+        // 2. Check if Creator
+        String username = authentication.getName();
+        UUID currentUserId = iamContextFacade.fetchUserIdByUsername(username);
+        if (currentUserId != null && currentUserId.equals(announcement.getCreatedBy())) {
+            return;
+        }
+
+        throw new ForbiddenException("You do not have permission to modify or delete this announcement");
     }
 
     @Override
