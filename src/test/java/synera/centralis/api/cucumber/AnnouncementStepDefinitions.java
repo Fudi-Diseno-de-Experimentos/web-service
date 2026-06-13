@@ -17,6 +17,16 @@ public class AnnouncementStepDefinitions extends AbstractCucumberSteps {
         autenticarComo("gerente@synera.com", AUTORIDADES_GESTION);
     }
 
+    @Dado("que un empleado común ha iniciado sesión para publicar anuncios")
+    public void empleadoComunAutenticado() {
+        autenticarComo("empleado@synera.com", AUTORIDADES_EMPLEADO);
+    }
+
+    @Entonces("el anuncio es rechazado por falta de permisos")
+    public void anuncioRechazadoPorFaltaDePermisos() {
+        assertEquals(403, response.getStatusCode().value());
+    }
+
     @Cuando("publica un anuncio con título {string} y prioridad {string}")
     public void publicaAnuncio(String titulo, String prioridad) {
         String body = "{"

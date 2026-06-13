@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import synera.centralis.api.announcement.domain.model.commands.DeleteAnnouncementCommand;
@@ -68,6 +69,7 @@ public class AnnouncementController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ROLE_ADMIN') or hasRole('MANAGER')")
     @Operation(summary = "Create a new announcement", description = "Creates a new announcement in the system")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "201", description = "Announcement created successfully",
@@ -160,6 +162,7 @@ public class AnnouncementController {
     }
 
     @PutMapping("/{announcementId}")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Update announcement", description = "Updates an existing announcement")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "200", description = "Announcement updated successfully",
@@ -180,6 +183,7 @@ public class AnnouncementController {
     }
 
     @DeleteMapping("/{announcementId}")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Delete announcement", description = "Deletes an announcement and all its associated comments")
     @ApiResponses(value = {
         @ApiResponse(responseCode = "204", description = "Announcement deleted successfully"),

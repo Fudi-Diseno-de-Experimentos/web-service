@@ -20,3 +20,8 @@ Característica: Publicación de anuncios
       | Aviso general     | NORMAL    |
       | Cambio de horario | HIGH      |
       | Evacuación        | URGENT    |
+
+  Escenario: Impedir que un empleado común publique anuncios
+    Dado que un empleado común ha iniciado sesión para publicar anuncios
+    Cuando publica un anuncio con título "Intento no autorizado" y prioridad "NORMAL"
+    Entonces el anuncio es rechazado por falta de permisos
