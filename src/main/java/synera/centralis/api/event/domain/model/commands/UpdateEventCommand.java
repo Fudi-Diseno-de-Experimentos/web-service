@@ -14,7 +14,7 @@ public record UpdateEventCommand(
         String title,
         String description,
         LocalDateTime date,
-        String location,
+        UUID spaceId,
         List<UUID> recipientIds,
         CompanyId companyId
 ) {

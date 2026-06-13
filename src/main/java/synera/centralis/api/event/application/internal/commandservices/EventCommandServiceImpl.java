@@ -13,6 +13,8 @@ import synera.centralis.api.iam.infrastructure.authorization.sfs.utils.SecurityU
 import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+
 import lombok.extern.slf4j.Slf4j;
 import synera.centralis.api.event.domain.model.agreggates.Event;
 import synera.centralis.api.event.domain.model.commands.CreateEventCommand;
@@ -21,8 +23,10 @@ import synera.centralis.api.event.domain.model.commands.UpdateEventCommand;
 import synera.centralis.api.event.domain.services.EventCommandService;
 import synera.centralis.api.event.infrastructure.persistence.jpa.repositories.EventRepository;
 import synera.centralis.api.shared.domain.events.EventCreatedEvent;
+import synera.centralis.api.shared.domain.exceptions.DuplicateResourceException;
 import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
 import synera.centralis.api.shared.domain.exceptions.ValidationException;
+import synera.centralis.api.event.domain.model.valueobjects.SpaceId;
 
 /**
  * Implementation of EventCommandService.
@@ -44,6 +48,8 @@ public class EventCommandServiceImpl implements EventCommandService {
     @Override
     @Transactional
     public Event handle(CreateEventCommand command) {
+        // Day-level room booking guard, outside the try so the 409 isn't masked as a 400.
+        verifySpaceAvailable(command.companyId(), command.spaceId(), command.date(), null);
         try {
             log.info("Creating new event with title: {}", command.title());
 
@@ -51,7 +57,7 @@ public class EventCommandServiceImpl implements EventCommandService {
                     command.title(),
                     command.description(),
                     command.date(),
-                    command.location(),
+                    new SpaceId(command.spaceId()),
                     command.recipientIds(),
                     command.createdBy()
             );
@@ -115,13 +121,23 @@ public class EventCommandServiceImpl implements EventCommandService {
                     return new ResourceNotFoundException("Event not found with ID: " + command.eventId());
                 });
 
+        // Resolve the post-update space/date (a null field on the command means "leave as-is")
+        // and re-check the day-level conflict, excluding this event from its own check.
+        UUID effectiveSpaceId = command.spaceId() != null
+                ? command.spaceId()
+                : (event.getSpaceId() != null ? event.getSpaceId().spaceId() : null);
+        LocalDateTime effectiveDate = command.date() != null ? command.date() : event.getDate();
+        if (effectiveSpaceId != null) {
+            verifySpaceAvailable(command.companyId(), effectiveSpaceId, effectiveDate, command.eventId());
+        }
+
         try {
             // Update event information
             event.updateEvent(
                     command.title(),
                     command.description(),
                     command.date(),
-                    command.location(),
+                    command.spaceId() != null ? new SpaceId(command.spaceId()) : null,
                     command.recipientIds()
             );
 
@@ -156,6 +172,24 @@ public class EventCommandServiceImpl implements EventCommandService {
         } catch (Exception e) {
             log.error("Error deleting event: {}", e.getMessage(), e);
             throw new ValidationException("Error deleting event: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Throws {@link DuplicateResourceException} (→ 409) if the space is already booked
+     * by another event in the company on the same calendar day as {@code date}.
+     * Time-of-day is ignored: a room can hold at most one event per day.
+     *
+     * @param excludeEventId the event being updated, excluded from its own check; null on create
+     */
+    private void verifySpaceAvailable(CompanyId companyId, UUID spaceId, LocalDateTime date, UUID excludeEventId) {
+        LocalDateTime dayStart = date.toLocalDate().atStartOfDay();
+        LocalDateTime dayEnd = dayStart.plusDays(1);
+        boolean conflict = eventRepository.existsBookingConflict(
+                companyId, new SpaceId(spaceId), dayStart, dayEnd, excludeEventId);
+        if (conflict) {
+            throw new DuplicateResourceException(
+                    "Space is already booked on " + date.toLocalDate() + " for this company");
         }
     }
 }

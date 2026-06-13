@@ -18,7 +18,7 @@ public class EventResourceFromEntityAssembler {
                 event.getTitle(),
                 event.getDescription(),
                 event.getDate(),
-                event.getLocation(),
+                event.getSpaceId() != null ? event.getSpaceId().spaceId() : null,
                 event.getCreatedBy().userId(),
                 event.getRecipients().stream()
                         .map(recipient -> recipient.userId())

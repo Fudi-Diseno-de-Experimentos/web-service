@@ -3,6 +3,7 @@ package synera.centralis.api.event.unit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import synera.centralis.api.event.domain.model.agreggates.Event;
+import synera.centralis.api.event.domain.model.valueobjects.SpaceId;
 import synera.centralis.api.event.domain.model.valueobjects.UserId;
 
 import java.time.LocalDateTime;
@@ -19,10 +20,11 @@ import static org.junit.jupiter.api.Assertions.*;
 class EventUnitTest {
 
     private static final UserId CREADOR = new UserId(UUID.randomUUID());
+    private static final SpaceId SALA = new SpaceId(UUID.randomUUID());
     private static final LocalDateTime FECHA = LocalDateTime.of(2026, 10, 10, 10, 0);
 
     private Event eventoValido() {
-        return new Event("Reunión General", "Alineación trimestral", FECHA, "Sala A",
+        return new Event("Reunión General", "Alineación trimestral", FECHA, SALA,
                 List.of(UUID.randomUUID()), CREADOR);
     }
 
@@ -45,7 +47,7 @@ class EventUnitTest {
         // Business / User Story Rational (US18): el título admite hasta 200
         // caracteres; el borde exacto debe poder guardarse.
         // Arrange + Act
-        var evento = new Event("T".repeat(200), "desc", FECHA, null, List.of(UUID.randomUUID()), CREADOR);
+        var evento = new Event("T".repeat(200), "desc", FECHA, SALA, List.of(UUID.randomUUID()), CREADOR);
         // Assert
         assertEquals(200, evento.getTitle().length());
     }
@@ -57,7 +59,7 @@ class EventUnitTest {
         // puede exceder 1000 caracteres.
         // Act + Assert
         assertThrows(IllegalArgumentException.class,
-                () -> new Event("Titulo", "D".repeat(1001), FECHA, null, List.of(UUID.randomUUID()), CREADOR));
+                () -> new Event("Titulo", "D".repeat(1001), FECHA, SALA, List.of(UUID.randomUUID()), CREADOR));
     }
 
     @Test
@@ -67,7 +69,7 @@ class EventUnitTest {
         // empleados seleccionados; sin invitados no tiene sentido.
         // Act + Assert
         var ex = assertThrows(IllegalArgumentException.class,
-                () -> new Event("Titulo", "desc", FECHA, null, List.of(), CREADOR));
+                () -> new Event("Titulo", "desc", FECHA, SALA, List.of(), CREADOR));
         assertEquals("Event must have at least one recipient", ex.getMessage());
     }
 
@@ -105,7 +107,7 @@ class EventUnitTest {
         // ven el evento.
         // Arrange
         var invitado = UUID.randomUUID();
-        var evento = new Event("Titulo", "desc", FECHA, null, List.of(invitado), CREADOR);
+        var evento = new Event("Titulo", "desc", FECHA, SALA, List.of(invitado), CREADOR);
         // Act + Assert
         assertTrue(evento.isRecipient(new UserId(invitado)));
         assertFalse(evento.isRecipient(new UserId(UUID.randomUUID())));

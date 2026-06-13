@@ -23,9 +23,8 @@ public record UpdateEventResource(
         @Schema(description = "Date and time of the event", example = "2025-02-15T14:30:00")
         LocalDateTime date,
 
-        @Schema(description = "Location of the event", example = "Conference Room B")
-        @Size(max = 500, message = "Event location cannot exceed 500 characters")
-        String location,
+        @Schema(description = "ID of the company Space (room) to book for this event; omit to leave unchanged")
+        UUID spaceId,
 
         @Schema(description = "List of recipient user IDs")
         List<UUID> recipientIds

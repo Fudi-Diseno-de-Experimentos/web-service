@@ -7,6 +7,7 @@ import org.hibernate.annotations.Fetch;
 import org.hibernate.annotations.FetchMode;
 import synera.centralis.api.event.domain.model.valueobjects.UserId;
 import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+import synera.centralis.api.event.domain.model.valueobjects.SpaceId;
 import synera.centralis.api.shared.domain.model.aggregates.AuditableAbstractAggregateRoot;
 
 import java.time.LocalDateTime;
@@ -34,9 +35,6 @@ public class Event extends AuditableAbstractAggregateRoot<Event> {
     @Column(name = "date", nullable = false)
     private LocalDateTime date;
 
-    @Column(name = "location", length = 500)
-    private String location;
-
     @Embedded
     @AttributeOverride(name = "userId", column = @Column(name = "created_by"))
     private UserId createdBy;
@@ -53,15 +51,21 @@ public class Event extends AuditableAbstractAggregateRoot<Event> {
     private CompanyId companyId;
     public void setCompanyId(CompanyId companyId) { this.companyId = companyId; }
 
+    // Mandatory link to the company Space (room) this event books. An event
+    // always occupies exactly one managed room.
+    @Embedded
+    private SpaceId spaceId;
+    public void setSpaceId(SpaceId spaceId) { this.spaceId = validateSpaceId(spaceId); }
+
     /**
      * Constructor for creating a new event.
      */
-    public Event(String title, String description, LocalDateTime date, String location,
+    public Event(String title, String description, LocalDateTime date, SpaceId spaceId,
                  List<UUID> recipientIds, UserId createdBy) {
         this.title = validateAndSetTitle(title);
         this.description = validateAndSetDescription(description);
         this.date = validateDate(date);
-        this.location = validateAndSetLocation(location);
+        this.spaceId = validateSpaceId(spaceId);
         this.createdBy = validateCreatedBy(createdBy);
         this.recipients = new HashSet<>();
 
@@ -77,7 +81,7 @@ public class Event extends AuditableAbstractAggregateRoot<Event> {
      * Updates event information.
      */
     public void updateEvent(String title, String description, LocalDateTime date,
-                           String location, List<UUID> recipientIds) {
+                           SpaceId spaceId, List<UUID> recipientIds) {
         if (title != null) {
             this.title = validateAndSetTitle(title);
         }
@@ -87,8 +91,8 @@ public class Event extends AuditableAbstractAggregateRoot<Event> {
         if (date != null) {
             this.date = validateDate(date);
         }
-        if (location != null) {
-            this.location = validateAndSetLocation(location);
+        if (spaceId != null) {
+            this.spaceId = validateSpaceId(spaceId);
         }
         if (recipientIds != null) {
             this.recipients.clear();
@@ -159,14 +163,11 @@ public class Event extends AuditableAbstractAggregateRoot<Event> {
         return date;
     }
 
-    private String validateAndSetLocation(String location) {
-        if (location != null) {
-            if (location.length() > 500) {
-                throw new IllegalArgumentException("Event location cannot exceed 500 characters");
-            }
-            return location.trim().isEmpty() ? null : location.trim();
+    private SpaceId validateSpaceId(SpaceId spaceId) {
+        if (spaceId == null) {
+            throw new IllegalArgumentException("Event space cannot be null");
         }
-        return null;
+        return spaceId;
     }
 
     private UserId validateCreatedBy(UserId createdBy) {

@@ -41,7 +41,7 @@ class EventIntegrationTest extends AbstractIntegrationTest {
         var companyId = new CompanyId(UUID.randomUUID());
         var invitado = UUID.randomUUID();
         var command = new CreateEventCommand("Kickoff", "Inicio de proyecto",
-                LocalDateTime.of(2026, 9, 1, 9, 0), "Sala B", List.of(invitado),
+                LocalDateTime.of(2026, 9, 1, 9, 0), UUID.randomUUID(), List.of(invitado),
                 new UserId(UUID.randomUUID()), companyId);
         // Act
         var creado = commandService.handle(command);
@@ -61,7 +61,7 @@ class EventIntegrationTest extends AbstractIntegrationTest {
         var companiaA = new CompanyId(UUID.randomUUID());
         var companiaB = new CompanyId(UUID.randomUUID());
         commandService.handle(new CreateEventCommand("Solo A", "desc",
-                LocalDateTime.of(2026, 9, 1, 9, 0), null, List.of(UUID.randomUUID()),
+                LocalDateTime.of(2026, 9, 1, 9, 0), UUID.randomUUID(), List.of(UUID.randomUUID()),
                 new UserId(UUID.randomUUID()), companiaA));
         // Act
         var listadoB = queryService.handle(new GetAllEventsQuery(companiaB));
