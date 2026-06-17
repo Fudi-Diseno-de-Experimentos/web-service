@@ -42,7 +42,7 @@ public class EventQueryServiceImpl implements EventQueryService {
     @Transactional(readOnly = true)
     public List<Event> handle(GetEventsByRecipientIdQuery query) {
         log.info("Getting events for recipient: {}", query.recipientId().userId());
-        return eventRepository.findByRecipientsContainingAndCompanyId(query.recipientId(), query.companyId());
+        return eventRepository.findByRecipientsContainingAndCompanyId(query.recipientId().userId(), query.companyId());
     }
 
     @Override
