@@ -15,8 +15,10 @@ import org.springframework.web.bind.annotation.*;
 import synera.centralis.api.event.domain.model.agreggates.Event;
 import synera.centralis.api.event.domain.model.commands.DeleteEventCommand;
 import synera.centralis.api.event.domain.model.commands.CreateEventCommand;
+import synera.centralis.api.event.domain.model.commands.RespondToEventInvitationCommand;
 import synera.centralis.api.event.domain.model.commands.UpdateEventCommand;
 import synera.centralis.api.event.domain.model.queries.*;
+import synera.centralis.api.event.domain.model.valueobjects.RecipientStatus;
 import synera.centralis.api.event.domain.model.valueobjects.UserId;
 import synera.centralis.api.event.domain.services.EventCommandService;
 import synera.centralis.api.event.domain.services.EventQueryService;
@@ -66,6 +68,22 @@ public class EventController {
             throw new UnauthorizedException("User not associated with a company");
         }
         return new CompanyId(companyId);
+    }
+
+    /**
+     * Resolves the authenticated user's UUID from the security principal, or {@code null}
+     * if the principal name is not a UUID (so it can be used as a "viewer" hint for myStatus).
+     */
+    private UUID getCurrentUserId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || authentication.getName() == null) {
+            return null;
+        }
+        try {
+            return UUID.fromString(authentication.getName());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /**
@@ -133,7 +151,7 @@ public class EventController {
         var event = eventQueryService.handle(getEventByIdQuery)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found with id: " + eventId));
 
-        var eventResource = EventResourceFromEntityAssembler.toResourceFromEntity(event);
+        var eventResource = EventResourceFromEntityAssembler.toResourceFromEntity(event, getCurrentUserId());
         return new ResponseEntity<>(eventResource, HttpStatus.OK);
     }
 
@@ -172,8 +190,9 @@ public class EventController {
                 events = eventQueryService.handle(query);
             }
 
+        var viewerId = getCurrentUserId();
         var eventResources = events.stream()
-                .map(EventResourceFromEntityAssembler::toResourceFromEntity)
+                .map(event -> EventResourceFromEntityAssembler.toResourceFromEntity(event, viewerId))
                 .toList();
 
         return new ResponseEntity<>(eventResources, HttpStatus.OK);
@@ -205,8 +224,9 @@ public class EventController {
                 events = eventQueryService.handle(query);
             }
 
+        var viewerId = getCurrentUserId();
         var eventResources = events.stream()
-                .map(EventResourceFromEntityAssembler::toResourceFromEntity)
+                .map(event -> EventResourceFromEntityAssembler.toResourceFromEntity(event, viewerId))
                 .toList();
 
         return new ResponseEntity<>(eventResources, HttpStatus.OK);
@@ -233,6 +253,48 @@ public class EventController {
         var updatedEvent = eventCommandService.handle(updateEventCommand);
 
         var eventResource = EventResourceFromEntityAssembler.toResourceFromEntity(updatedEvent);
+        return new ResponseEntity<>(eventResource, HttpStatus.OK);
+    }
+
+    /**
+     * Accepts an event invitation as the authenticated recipient.
+     */
+    @PostMapping("/{eventId}/accept")
+    @Operation(summary = "Accept an event invitation", description = "The authenticated recipient accepts their invitation to the event")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Invitation accepted"),
+            @ApiResponse(responseCode = "403", description = "Caller is not a recipient of this event"),
+            @ApiResponse(responseCode = "404", description = "Event not found")
+    })
+    public ResponseEntity<EventResource> acceptInvitation(
+            @Parameter(description = "Event ID", required = true) @PathVariable UUID eventId) {
+        return respondToInvitation(eventId, RecipientStatus.ACCEPTED);
+    }
+
+    /**
+     * Declines (cancels) an event invitation as the authenticated recipient.
+     * After declining, the event no longer appears in the member's own event/calendar lists.
+     */
+    @PostMapping("/{eventId}/decline")
+    @Operation(summary = "Decline an event invitation", description = "The authenticated recipient declines their invitation; the event is hidden from their lists")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "200", description = "Invitation declined"),
+            @ApiResponse(responseCode = "403", description = "Caller is not a recipient of this event"),
+            @ApiResponse(responseCode = "404", description = "Event not found")
+    })
+    public ResponseEntity<EventResource> declineInvitation(
+            @Parameter(description = "Event ID", required = true) @PathVariable UUID eventId) {
+        return respondToInvitation(eventId, RecipientStatus.DECLINED);
+    }
+
+    private ResponseEntity<EventResource> respondToInvitation(UUID eventId, RecipientStatus status) {
+        var companyId = getCurrentCompanyId();
+        var userId = getCurrentUserId();
+
+        var command = new RespondToEventInvitationCommand(eventId, userId, status, companyId);
+        var event = eventCommandService.handle(command);
+
+        var eventResource = EventResourceFromEntityAssembler.toResourceFromEntity(event, userId);
         return new ResponseEntity<>(eventResource, HttpStatus.OK);
     }
 

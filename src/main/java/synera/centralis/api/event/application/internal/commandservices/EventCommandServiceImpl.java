@@ -19,14 +19,17 @@ import lombok.extern.slf4j.Slf4j;
 import synera.centralis.api.event.domain.model.agreggates.Event;
 import synera.centralis.api.event.domain.model.commands.CreateEventCommand;
 import synera.centralis.api.event.domain.model.commands.DeleteEventCommand;
+import synera.centralis.api.event.domain.model.commands.RespondToEventInvitationCommand;
 import synera.centralis.api.event.domain.model.commands.UpdateEventCommand;
 import synera.centralis.api.event.domain.services.EventCommandService;
 import synera.centralis.api.event.infrastructure.persistence.jpa.repositories.EventRepository;
 import synera.centralis.api.shared.domain.events.EventCreatedEvent;
 import synera.centralis.api.shared.domain.exceptions.DuplicateResourceException;
+import synera.centralis.api.shared.domain.exceptions.ForbiddenException;
 import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
 import synera.centralis.api.shared.domain.exceptions.ValidationException;
 import synera.centralis.api.event.domain.model.valueobjects.SpaceId;
+import synera.centralis.api.event.domain.model.valueobjects.UserId;
 
 /**
  * Implementation of EventCommandService.
@@ -75,9 +78,7 @@ public class EventCommandServiceImpl implements EventCommandService {
             // Safely extract recipient IDs (evita NPE si recipients es null)
             Set<UUID> recipientIds = savedEvent.getRecipients() == null
                     ? Collections.emptySet()
-                    : savedEvent.getRecipients().stream()
-                            .map(recipient -> recipient.userId())
-                            .collect(Collectors.toSet());
+                    : savedEvent.getRecipientUserIds();
 
             log.info("Recipients count: {}", recipientIds.size());
             log.info("Recipient IDs: {}", recipientIds);
@@ -173,6 +174,23 @@ public class EventCommandServiceImpl implements EventCommandService {
             log.error("Error deleting event: {}", e.getMessage(), e);
             throw new ValidationException("Error deleting event: " + e.getMessage());
         }
+    }
+
+    @Override
+    @Transactional
+    public Event handle(RespondToEventInvitationCommand command) {
+        log.info("User {} responding {} to event {}", command.userId(), command.status(), command.eventId());
+
+        var event = eventRepository.findByIdAndCompanyId(command.eventId(), command.companyId())
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found with ID: " + command.eventId()));
+
+        // Only a recipient may respond, and only for themselves (→ 403).
+        if (!event.isRecipient(new UserId(command.userId()))) {
+            throw new ForbiddenException("You are not a recipient of this event");
+        }
+
+        event.respondToInvitation(command.userId(), command.status());
+        return eventRepository.save(event);
     }
 
     /**

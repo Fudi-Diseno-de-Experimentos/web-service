@@ -5,11 +5,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import synera.centralis.api.event.domain.model.commands.CreateEventCommand;
+import synera.centralis.api.event.domain.model.commands.RespondToEventInvitationCommand;
 import synera.centralis.api.event.domain.model.queries.GetAllEventsQuery;
+import synera.centralis.api.event.domain.model.queries.GetEventsByRecipientIdQuery;
+import synera.centralis.api.event.domain.model.valueobjects.RecipientStatus;
 import synera.centralis.api.event.domain.model.valueobjects.UserId;
 import synera.centralis.api.event.domain.services.EventCommandService;
 import synera.centralis.api.event.domain.services.EventQueryService;
 import synera.centralis.api.shared.AbstractIntegrationTest;
+import synera.centralis.api.shared.domain.exceptions.ForbiddenException;
 import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import java.time.LocalDateTime;
@@ -67,5 +71,57 @@ class EventIntegrationTest extends AbstractIntegrationTest {
         var listadoB = queryService.handle(new GetAllEventsQuery(companiaB));
         // Assert
         assertTrue(listadoB.isEmpty());
+    }
+
+    @Test
+    @DisplayName("Invitación: al declinar, el evento desaparece de la lista del invitado pero sigue para el admin")
+    void declinarOcultaEventoSoloParaElInvitado() {
+        // Business Rational: si el miembro cancela, ya no lo ve; el admin sí.
+        // Arrange
+        var companyId = new CompanyId(UUID.randomUUID());
+        var invitado = UUID.randomUUID();
+        var evento = commandService.handle(new CreateEventCommand("Town Hall", "desc",
+                LocalDateTime.of(2026, 9, 2, 9, 0), UUID.randomUUID(), List.of(invitado),
+                new UserId(UUID.randomUUID()), companyId));
+        // Visible antes de responder
+        assertEquals(1, queryService.handle(
+                new GetEventsByRecipientIdQuery(new UserId(invitado), companyId)).size());
+        // Act: el invitado declina
+        commandService.handle(new RespondToEventInvitationCommand(
+                evento.getId(), invitado, RecipientStatus.DECLINED, companyId));
+        // Assert: oculto en su lista, presente para el admin (todos los eventos)
+        assertTrue(queryService.handle(
+                new GetEventsByRecipientIdQuery(new UserId(invitado), companyId)).isEmpty());
+        assertEquals(1, queryService.handle(new GetAllEventsQuery(companyId)).size());
+    }
+
+    @Test
+    @DisplayName("Invitación: aceptar mantiene el evento visible para el invitado")
+    void aceptarMantieneEventoVisible() {
+        var companyId = new CompanyId(UUID.randomUUID());
+        var invitado = UUID.randomUUID();
+        var evento = commandService.handle(new CreateEventCommand("Demo", "desc",
+                LocalDateTime.of(2026, 9, 3, 9, 0), UUID.randomUUID(), List.of(invitado),
+                new UserId(UUID.randomUUID()), companyId));
+        // Act
+        commandService.handle(new RespondToEventInvitationCommand(
+                evento.getId(), invitado, RecipientStatus.ACCEPTED, companyId));
+        // Assert
+        var visibles = queryService.handle(new GetEventsByRecipientIdQuery(new UserId(invitado), companyId));
+        assertEquals(1, visibles.size());
+        assertEquals(RecipientStatus.ACCEPTED, visibles.get(0).getStatusFor(invitado));
+    }
+
+    @Test
+    @DisplayName("Invitación: responder a un evento del que no se es invitado da Forbidden")
+    void responderSinSerInvitadoEsForbidden() {
+        var companyId = new CompanyId(UUID.randomUUID());
+        var evento = commandService.handle(new CreateEventCommand("Privado", "desc",
+                LocalDateTime.of(2026, 9, 4, 9, 0), UUID.randomUUID(), List.of(UUID.randomUUID()),
+                new UserId(UUID.randomUUID()), companyId));
+        // Act + Assert
+        var intruso = UUID.randomUUID();
+        assertThrows(ForbiddenException.class, () -> commandService.handle(
+                new RespondToEventInvitationCommand(evento.getId(), intruso, RecipientStatus.ACCEPTED, companyId)));
     }
 }

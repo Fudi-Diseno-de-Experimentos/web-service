@@ -3,6 +3,7 @@ package synera.centralis.api.event.unit;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import synera.centralis.api.event.domain.model.agreggates.Event;
+import synera.centralis.api.event.domain.model.valueobjects.RecipientStatus;
 import synera.centralis.api.event.domain.model.valueobjects.SpaceId;
 import synera.centralis.api.event.domain.model.valueobjects.UserId;
 
@@ -129,5 +130,76 @@ class EventUnitTest {
         evento.removeRecipient(nuevo);
         // Assert
         assertEquals(1, evento.getRecipientCount());
+    }
+
+    @Test
+    @DisplayName("Invitación: un invitado nuevo arranca en PENDING")
+    void invitadoNuevoArrancaEnPending() {
+        // Business Rational: al crear el evento nadie ha respondido todavía.
+        var invitado = UUID.randomUUID();
+        var evento = new Event("Titulo", "desc", FECHA, SALA, List.of(invitado), CREADOR);
+        assertEquals(RecipientStatus.PENDING, evento.getStatusFor(invitado));
+    }
+
+    @Test
+    @DisplayName("Invitación: aceptar y luego cancelar actualiza el estado del invitado")
+    void aceptarYLuegoCancelarActualizaEstado() {
+        // Business Rational: el miembro acepta y más tarde puede cancelar (declinar).
+        var invitado = UUID.randomUUID();
+        var evento = new Event("Titulo", "desc", FECHA, SALA, List.of(invitado), CREADOR);
+        // Act
+        evento.respondToInvitation(invitado, RecipientStatus.ACCEPTED);
+        // Assert
+        assertEquals(RecipientStatus.ACCEPTED, evento.getStatusFor(invitado));
+        // Act
+        evento.respondToInvitation(invitado, RecipientStatus.DECLINED);
+        // Assert
+        assertEquals(RecipientStatus.DECLINED, evento.getStatusFor(invitado));
+    }
+
+    @Test
+    @DisplayName("Invitación: responder como no-invitado es un estado inválido")
+    void responderComoNoInvitadoEsRechazado() {
+        // Business Rational: solo un invitado puede responder, y solo por sí mismo.
+        var evento = eventoValido();
+        assertThrows(IllegalStateException.class,
+                () -> evento.respondToInvitation(UUID.randomUUID(), RecipientStatus.ACCEPTED));
+    }
+
+    @Test
+    @DisplayName("Edición: actualizar invitados conserva la respuesta de los que permanecen")
+    void actualizarInvitadosConservaRespuestas() {
+        // Business Rational (US20): editar el evento no debe borrar las respuestas
+        // de quienes siguen invitados.
+        var permanece = UUID.randomUUID();
+        var seVa = UUID.randomUUID();
+        var nuevo = UUID.randomUUID();
+        var evento = new Event("Titulo", "desc", FECHA, SALA, List.of(permanece, seVa), CREADOR);
+        evento.respondToInvitation(permanece, RecipientStatus.ACCEPTED);
+        evento.respondToInvitation(seVa, RecipientStatus.DECLINED);
+        // Act: la nueva lista mantiene a 'permanece', quita a 'seVa', agrega a 'nuevo'
+        evento.updateEvent(null, null, null, null, List.of(permanece, nuevo));
+        // Assert
+        assertEquals(RecipientStatus.ACCEPTED, evento.getStatusFor(permanece), "respuesta conservada");
+        assertEquals(RecipientStatus.PENDING, evento.getStatusFor(nuevo), "nuevo arranca PENDING");
+        assertNull(evento.getStatusFor(seVa), "removido ya no es invitado");
+        assertEquals(2, evento.getRecipientCount());
+    }
+
+    @Test
+    @DisplayName("Edición: un invitado removido y vuelto a agregar regresa en PENDING")
+    void removidoYReagregadoRegresaEnPending() {
+        // Business Rational: re-agregar a alguien no recupera su respuesta previa.
+        var invitado = UUID.randomUUID();
+        var otro = UUID.randomUUID();
+        var evento = new Event("Titulo", "desc", FECHA, SALA, List.of(invitado, otro), CREADOR);
+        evento.respondToInvitation(invitado, RecipientStatus.ACCEPTED);
+        // Act: quitar a 'invitado'...
+        evento.updateEvent(null, null, null, null, List.of(otro));
+        assertNull(evento.getStatusFor(invitado));
+        // ...y volver a agregarlo
+        evento.updateEvent(null, null, null, null, List.of(otro, invitado));
+        // Assert
+        assertEquals(RecipientStatus.PENDING, evento.getStatusFor(invitado));
     }
 }
