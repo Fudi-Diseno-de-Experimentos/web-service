@@ -26,15 +26,19 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
     Optional<Event> findByIdAndCompanyId(UUID id, CompanyId companyId);
 
     /**
-     * Find all events where the specified user is a recipient.
+     * Find all events where the specified user is a recipient who has <em>not</em> declined.
+     * Declined invitations are hidden from the member's own lists (a null status — only
+     * possible for pre-backfill legacy rows — is treated as not-declined / visible).
      * @param recipientId the user ID to search for
-     * @return list of events where the user is a recipient
+     * @return list of events where the user is a non-declined recipient
      */
-    @Query("SELECT e FROM Event e JOIN e.recipients r WHERE r = :recipientId AND e.companyId = :companyId")
-    List<Event> findByRecipientsContainingAndCompanyId(@Param("recipientId") UserId recipientId, @Param("companyId") CompanyId companyId);
+    @Query("SELECT e FROM Event e JOIN e.recipients r WHERE r.userId = :recipientId AND e.companyId = :companyId " +
+            "AND (r.status IS NULL OR r.status <> synera.centralis.api.event.domain.model.valueobjects.RecipientStatus.DECLINED)")
+    List<Event> findByRecipientsContainingAndCompanyId(@Param("recipientId") UUID recipientId, @Param("companyId") CompanyId companyId);
 
-    @Query("SELECT e FROM Event e JOIN e.recipients r WHERE r = :recipientId")
-    List<Event> findByRecipientsContaining(@Param("recipientId") UserId recipientId);
+    @Query("SELECT e FROM Event e JOIN e.recipients r WHERE r.userId = :recipientId " +
+            "AND (r.status IS NULL OR r.status <> synera.centralis.api.event.domain.model.valueobjects.RecipientStatus.DECLINED)")
+    List<Event> findByRecipientsContaining(@Param("recipientId") UUID recipientId);
 
     /**
      * Find all events created by a specific user.
@@ -79,8 +83,8 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
      * @param recipientId the recipient user ID
      * @return number of events where the user is a recipient
      */
-    @Query("SELECT COUNT(e) FROM Event e JOIN e.recipients r WHERE r = :recipientId")
-    long countByRecipientsContaining(@Param("recipientId") UserId recipientId);
+    @Query("SELECT COUNT(e) FROM Event e JOIN e.recipients r WHERE r.userId = :recipientId")
+    long countByRecipientsContaining(@Param("recipientId") UUID recipientId);
 
     /**
      * Day-level booking conflict check: is there already an event in this company
