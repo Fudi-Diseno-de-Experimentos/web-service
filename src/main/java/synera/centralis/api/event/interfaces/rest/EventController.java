@@ -79,11 +79,10 @@ public class EventController {
         if (authentication == null || authentication.getName() == null) {
             return null;
         }
-        try {
-            return UUID.fromString(authentication.getName());
-        } catch (IllegalArgumentException e) {
-            return null;
-        }
+        // The JWT subject is the username (TokenServiceImpl), not a UUID. Resolve the real
+        // user id the same way every other context does, via the IAM ACL. Kept lenient
+        // (null when unresolved) because read paths use this only as a "viewer hint".
+        return iamContextFacade.fetchUserIdByUsername(authentication.getName());
     }
 
     /**
