@@ -31,4 +31,11 @@ public interface EventCommandService {
      * @param command the delete event command
      */
     boolean handle(DeleteEventCommand command);
+
+    /**
+     * Handles a member accepting or declining their event invitation.
+     * @param command the respond-to-invitation command
+     * @return the updated event
+     */
+    Event handle(RespondToEventInvitationCommand command);
 }
