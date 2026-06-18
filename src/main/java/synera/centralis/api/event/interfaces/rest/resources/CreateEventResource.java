@@ -30,9 +30,9 @@ public record CreateEventResource(
         @NotNull(message = "Event date is required")
         LocalDateTime date,
 
-        @Schema(description = "Location of the event (physical or virtual)", example = "Conference Room A / https://zoom.us/j/123456")
-        @Size(max = 500, message = "Event location cannot exceed 500 characters")
-        String location,
+        @Schema(description = "ID of the company Space (room) to book for this event", example = "123e4567-e89b-12d3-a456-426614174000", requiredMode = Schema.RequiredMode.REQUIRED)
+        @NotNull(message = "Event space is required")
+        UUID spaceId,
 
         @Schema(description = "List of recipient user IDs to notify", requiredMode = Schema.RequiredMode.REQUIRED)
         @NotEmpty(message = "At least one recipient is required")

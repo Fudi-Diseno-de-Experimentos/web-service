@@ -2,6 +2,7 @@ package synera.centralis.api.chat.interfaces.rest.transform;
 
 import synera.centralis.api.chat.domain.model.commands.UpdateGroupCommand;
 import synera.centralis.api.chat.interfaces.rest.resources.UpdateGroupResource;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import java.util.UUID;
 
@@ -15,14 +16,16 @@ public class UpdateGroupCommandFromResourceAssembler {
      * Transforms an UpdateGroupResource to an UpdateGroupCommand.
      * @param groupId the ID of the group to update
      * @param resource the resource containing update data
+     * @param companyId the ID of the company
      * @return the corresponding domain command
      */
-    public static UpdateGroupCommand toCommandFromResource(UUID groupId, UpdateGroupResource resource) {
+    public static UpdateGroupCommand toCommandFromResource(UUID groupId, UpdateGroupResource resource, CompanyId companyId) {
         return new UpdateGroupCommand(
                 groupId,
                 resource.name(),
                 resource.description(),
-                resource.imageUrl()
+                resource.imageUrl(),
+                companyId
         );
     }
 }

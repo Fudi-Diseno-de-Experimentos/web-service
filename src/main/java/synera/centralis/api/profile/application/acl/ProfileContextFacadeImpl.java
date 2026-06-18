@@ -1,10 +1,10 @@
 package synera.centralis.api.profile.application.acl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import synera.centralis.api.profile.domain.model.commands.CreateProfileCommand;
-import synera.centralis.api.profile.domain.model.valueobjects.Department;
-import synera.centralis.api.profile.domain.model.valueobjects.Position;
 import synera.centralis.api.profile.domain.model.valueobjects.UserId;
 import synera.centralis.api.profile.domain.services.ProfileCommandService;
 import synera.centralis.api.profile.infrastructure.persistence.jpa.repositories.ProfileRepository;
@@ -19,6 +19,8 @@ import java.util.UUID;
 @Service
 public class ProfileContextFacadeImpl implements ProfileContextFacade {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProfileContextFacadeImpl.class);
+
     private final ProfileCommandService profileCommandService;
     private final ProfileRepository profileRepository;
 
@@ -29,26 +31,24 @@ public class ProfileContextFacadeImpl implements ProfileContextFacade {
     }
 
     @Override
-    public Long createBasicProfile(String userIdStr, String firstName, String lastName, String email) {
+    public Long createBasicProfile(String userIdStr, String firstName, String lastName, String email, String url_image) {
         try {
             UUID userId = UUID.fromString(userIdStr);
             
-            // Create basic profile with default values
+            // Create basic profile
             var command = new CreateProfileCommand(
                 userId,
                 firstName,
                 lastName,
                 email,
-                null, // No avatar URL initially
-                Position.EMPLOYEE, // Default position
-                Department.IT // Default department - you can change this
+                url_image
             );
 
             var profile = profileCommandService.handle(command);
-            return profile.isEmpty() ? 0L : profile.get().getId().getMostSignificantBits();
+            return profile == null ? 0L : profile.getId().getMostSignificantBits();
         } catch (Exception e) {
             // Log error and return 0 to indicate failure
-            System.err.println("Failed to create profile for user " + userIdStr + ": " + e.getMessage());
+            LOGGER.error("Failed to create profile for user {}: {}", userIdStr, e.getMessage(), e);
             return 0L;
         }
     }
@@ -60,7 +60,7 @@ public class ProfileContextFacadeImpl implements ProfileContextFacade {
             var userIdObj = new UserId(userId);
             return profileRepository.existsByUserId(userIdObj);
         } catch (Exception e) {
-            System.err.println("Failed to check profile for user " + userIdStr + ": " + e.getMessage());
+            LOGGER.error("Failed to check profile for user {}: {}", userIdStr, e.getMessage(), e);
             return false;
         }
     }
@@ -70,22 +70,20 @@ public class ProfileContextFacadeImpl implements ProfileContextFacade {
         try {
             UUID userId = UUID.fromString(userIdStr);
             var userIdObj = new UserId(userId);
-            var profile = profileRepository.findByUserId(userIdObj);
+            var profile = profileRepository.findFirstByUserId(userIdObj);
             
             if (profile.isPresent()) {
                 var p = profile.get();
                 return java.util.Optional.of(new ProfileContextFacade.ProfileData(
-                    p.getFirstName(),
-                    p.getLastName(),
+                    p.getFullName(),
                     p.getEmail(),
-                    p.getDepartment().toString(), // Convert enum to string
-                    p.getPosition().toString()   // Convert enum to string
+                    p.getAvatarUrl()
                 ));
             }
             
             return java.util.Optional.empty();
         } catch (Exception e) {
-            System.err.println("Failed to get profile for user " + userIdStr + ": " + e.getMessage());
+            LOGGER.error("Failed to get profile for user {}: {}", userIdStr, e.getMessage(), e);
             return java.util.Optional.empty();
         }
     }

@@ -14,7 +14,7 @@ public interface ProfileContextFacade {
      * @param email the email address
      * @return the profile ID if created successfully, 0L if failed
      */
-    Long createBasicProfile(String userIdStr, String firstName, String lastName, String email);
+    Long createBasicProfile(String userIdStr, String firstName, String lastName, String email, String url_image);
     
     /**
      * Check if user has a profile
@@ -26,7 +26,7 @@ public interface ProfileContextFacade {
     /**
      * Get profile information by user ID
      * @param userIdStr the user ID from IAM context as string (UUID)
-     * @return Optional with profile data (firstName, lastName, email, department, position)
+     * @return Optional with profile data (firstName, lastName, email)
      */
     java.util.Optional<ProfileData> getProfileByUserId(String userIdStr);
     
@@ -34,10 +34,8 @@ public interface ProfileContextFacade {
      * Profile data record for external access
      */
     record ProfileData(
-        String firstName,
-        String lastName,
+        String fullName,
         String email,
-        String department,
-        String position
+        String imageUrl
     ) {}
 }

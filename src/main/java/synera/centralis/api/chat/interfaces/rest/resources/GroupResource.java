@@ -26,7 +26,10 @@ public record GroupResource(
         
         @Schema(description = "Visibility of the group", example = "PUBLIC")
         String visibility,
-        
+
+        @Schema(description = "Conversation type", example = "GROUP", allowableValues = {"GROUP", "DIRECT"})
+        String type,
+
         @Schema(description = "List of member user IDs")
         List<UUID> memberIds,
         

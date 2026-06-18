@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import synera.centralis.api.chat.domain.model.entities.Message;
 import synera.centralis.api.chat.domain.model.commands.*;
@@ -19,6 +20,11 @@ import synera.centralis.api.chat.interfaces.rest.resources.*;
 import synera.centralis.api.chat.interfaces.rest.transform.*;
 
 import jakarta.validation.Valid;
+import synera.centralis.api.iam.interfaces.acl.IamContextFacade;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
+import synera.centralis.api.shared.domain.exceptions.UnauthorizedException;
+import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
+
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,10 +41,41 @@ public class MessageController {
 
     private final MessageCommandService messageCommandService;
     private final MessageQueryService messageQueryService;
+    private final IamContextFacade iamContextFacade;
 
-    public MessageController(MessageCommandService messageCommandService, MessageQueryService messageQueryService) {
+    public MessageController(MessageCommandService messageCommandService, MessageQueryService messageQueryService, synera.centralis.api.iam.interfaces.acl.IamContextFacade iamContextFacade) {
         this.messageCommandService = messageCommandService;
         this.messageQueryService = messageQueryService;
+        this.iamContextFacade = iamContextFacade;
+    }
+
+    private CompanyId getCurrentCompanyId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            return null;
+        }
+        String username = authentication.getName();
+        java.util.UUID companyId = iamContextFacade.fetchCompanyIdByUsername(username);
+        if (companyId == null) {
+            throw new UnauthorizedException("User not associated with any company");
+        }
+        return new CompanyId(companyId);
+    }
+
+    /**
+     * Remitente derivado SIEMPRE del JWT, nunca del cuerpo, para impedir
+     * suplantación (mismo criterio que el controlador WebSocket).
+     */
+    private UUID getCurrentUserId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            throw new UnauthorizedException("Authentication required");
+        }
+        UUID userId = iamContextFacade.fetchUserIdByUsername(authentication.getName());
+        if (userId == null) {
+            throw new UnauthorizedException("Authenticated user not found");
+        }
+        return userId;
     }
 
     /**
@@ -55,21 +92,18 @@ public class MessageController {
     public ResponseEntity<MessageResource> createMessage(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Valid @RequestBody CreateMessageResource resource) {
-        try {
-            var createMessageCommand = CreateMessageCommandFromResourceAssembler.toCommandFromResource(groupId, resource);
-            Optional<Message> message = messageCommandService.handle(createMessageCommand);
-            
-            if (message.isPresent()) {
-                var messageResource = MessageResourceFromEntityAssembler.toResourceFromEntity(message.get());
-                return new ResponseEntity<>(messageResource, HttpStatus.CREATED);
-            } else {
-                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-            }
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
+
+        // El remitente se deriva del JWT; resource.senderId() se ignora a
+        // propósito para impedir suplantación. La pertenencia al grupo la
+        // valida MessageCommandServiceImpl.
+        UUID senderId = getCurrentUserId();
+        var createMessageCommand = CreateMessageCommandFromResourceAssembler.toCommandFromResource(groupId, senderId, resource);
+        var message = messageCommandService.handle(createMessageCommand);
+        
+        var messageResource = MessageResourceFromEntityAssembler.toResourceFromEntity(message);
+        return new ResponseEntity<>(messageResource, HttpStatus.CREATED);
     }
 
     /**
@@ -85,24 +119,20 @@ public class MessageController {
     public ResponseEntity<MessageResource> getMessageById(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Parameter(description = "Message ID", required = true) @PathVariable UUID messageId) {
-        try {
-            var getMessageByIdQuery = new GetMessageByIdQuery(messageId);
-            Optional<Message> message = messageQueryService.handle(getMessageByIdQuery);
-            
-            if (message.isPresent()) {
-                // Verify the message belongs to the specified group
-                if (!message.get().getGroupId().equals(groupId)) {
-                    return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-                }
-                
-                var messageResource = MessageResourceFromEntityAssembler.toResourceFromEntity(message.get());
-                return new ResponseEntity<>(messageResource, HttpStatus.OK);
-            } else {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
+
+        var getMessageByIdQuery = new GetMessageByIdQuery(messageId);
+        var message = messageQueryService.handle(getMessageByIdQuery)
+                .orElseThrow(() -> new ResourceNotFoundException("Message not found"));
+        
+        // Verify the message belongs to the specified group
+        if (!message.getGroupId().equals(groupId)) {
+            throw new ResourceNotFoundException("Message not found in this group");
         }
+        
+        var messageResource = MessageResourceFromEntityAssembler.toResourceFromEntity(message);
+        return new ResponseEntity<>(messageResource, HttpStatus.OK);
     }
 
     /**
@@ -116,18 +146,17 @@ public class MessageController {
     })
     public ResponseEntity<List<MessageResource>> getMessagesByGroupId(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId) {
-        try {
-            var getMessagesByGroupIdQuery = new GetMessagesByGroupIdQuery(groupId);
-            List<Message> messages = messageQueryService.handle(getMessagesByGroupIdQuery);
-            
-            var messageResources = messages.stream()
-                    .map(MessageResourceFromEntityAssembler::toResourceFromEntity)
-                    .toList();
-            
-            return new ResponseEntity<>(messageResources, HttpStatus.OK);
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
+
+        var getMessagesByGroupIdQuery = new GetMessagesByGroupIdQuery(groupId, companyId);
+        List<Message> messages = messageQueryService.handle(getMessagesByGroupIdQuery);
+        
+        var messageResources = messages.stream()
+                .map(MessageResourceFromEntityAssembler::toResourceFromEntity)
+                .toList();
+        
+        return new ResponseEntity<>(messageResources, HttpStatus.OK);
     }
 
     /**
@@ -143,20 +172,16 @@ public class MessageController {
     public ResponseEntity<List<MessageResource>> getMessagesByStatus(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Parameter(description = "Message status (SENT/EDITED/DELETED)", required = true) @PathVariable MessageStatus status) {
-        try {
-            var getMessagesByStatusQuery = new GetMessagesByStatusQuery(status);
-            List<Message> messages = messageQueryService.handle(getMessagesByStatusQuery);
-            
-            // Filter messages by group ID
-            var groupMessages = messages.stream()
-                    .filter(message -> message.getGroupId().equals(groupId))
-                    .map(MessageResourceFromEntityAssembler::toResourceFromEntity)
-                    .toList();
-            
-            return new ResponseEntity<>(groupMessages, HttpStatus.OK);
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
-        }
+        // Scope the query to the group at the database level instead of loading
+        // every message of this status and filtering in memory.
+        var getMessagesByStatusQuery = new GetMessagesByStatusQuery(groupId, status);
+        List<Message> messages = messageQueryService.handle(getMessagesByStatusQuery);
+
+        var groupMessages = messages.stream()
+                .map(MessageResourceFromEntityAssembler::toResourceFromEntity)
+                .toList();
+
+        return new ResponseEntity<>(groupMessages, HttpStatus.OK);
     }
 
     /**
@@ -175,31 +200,23 @@ public class MessageController {
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Parameter(description = "Message ID", required = true) @PathVariable UUID messageId,
             @Valid @RequestBody UpdateMessageBodyResource resource) {
-        try {
-            // First verify the message belongs to the group
-            var getMessageQuery = new GetMessageByIdQuery(messageId);
-            Optional<Message> existingMessage = messageQueryService.handle(getMessageQuery);
-            
-            if (existingMessage.isEmpty() || !existingMessage.get().getGroupId().equals(groupId)) {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-            
-            var updateMessageBodyCommand = UpdateMessageBodyCommandFromResourceAssembler.toCommandFromResource(messageId, resource);
-            Optional<Message> updatedMessage = messageCommandService.handle(updateMessageBodyCommand);
-            
-            if (updatedMessage.isPresent()) {
-                var messageResource = MessageResourceFromEntityAssembler.toResourceFromEntity(updatedMessage.get());
-                return new ResponseEntity<>(messageResource, HttpStatus.OK);
-            } else {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-        } catch (IllegalStateException e) {
-            return new ResponseEntity<>(HttpStatus.FORBIDDEN);
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
+
+        // First verify the message belongs to the group
+        var getMessageQuery = new GetMessageByIdQuery(messageId);
+        var existingMessage = messageQueryService.handle(getMessageQuery)
+                .orElseThrow(() -> new ResourceNotFoundException("Message not found"));
+        
+        if (!existingMessage.getGroupId().equals(groupId)) {
+            throw new ResourceNotFoundException("Message not found in this group");
         }
+        
+        var updateMessageBodyCommand = UpdateMessageBodyCommandFromResourceAssembler.toCommandFromResource(messageId, resource);
+        var updatedMessage = messageCommandService.handle(updateMessageBodyCommand);
+        
+        var messageResource = MessageResourceFromEntityAssembler.toResourceFromEntity(updatedMessage);
+        return new ResponseEntity<>(messageResource, HttpStatus.OK);
     }
 
     /**
@@ -217,29 +234,23 @@ public class MessageController {
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Parameter(description = "Message ID", required = true) @PathVariable UUID messageId,
             @Valid @RequestBody UpdateMessageStatusResource resource) {
-        try {
-            // First verify the message belongs to the group
-            var getMessageQuery = new GetMessageByIdQuery(messageId);
-            Optional<Message> existingMessage = messageQueryService.handle(getMessageQuery);
-            
-            if (existingMessage.isEmpty() || !existingMessage.get().getGroupId().equals(groupId)) {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-            
-            var updateMessageStatusCommand = UpdateMessageStatusCommandFromResourceAssembler.toCommandFromResource(messageId, resource);
-            Optional<Message> updatedMessage = messageCommandService.handle(updateMessageStatusCommand);
-            
-            if (updatedMessage.isPresent()) {
-                var messageResource = MessageResourceFromEntityAssembler.toResourceFromEntity(updatedMessage.get());
-                return new ResponseEntity<>(messageResource, HttpStatus.OK);
-            } else {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-        } catch (IllegalArgumentException e) {
-            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
+
+        // First verify the message belongs to the group
+        var getMessageQuery = new GetMessageByIdQuery(messageId);
+        var existingMessage = messageQueryService.handle(getMessageQuery)
+                .orElseThrow(() -> new ResourceNotFoundException("Message not found"));
+        
+        if (!existingMessage.getGroupId().equals(groupId)) {
+            throw new ResourceNotFoundException("Message not found in this group");
         }
+        
+        var updateMessageStatusCommand = UpdateMessageStatusCommandFromResourceAssembler.toCommandFromResource(messageId, resource);
+        var updatedMessage = messageCommandService.handle(updateMessageStatusCommand);
+        
+        var messageResource = MessageResourceFromEntityAssembler.toResourceFromEntity(updatedMessage);
+        return new ResponseEntity<>(messageResource, HttpStatus.OK);
     }
 
     /**
@@ -255,25 +266,21 @@ public class MessageController {
     public ResponseEntity<Void> deleteMessage(
             @Parameter(description = "Group ID", required = true) @PathVariable UUID groupId,
             @Parameter(description = "Message ID", required = true) @PathVariable UUID messageId) {
-        try {
-            // First verify the message belongs to the group
-            var getMessageQuery = new GetMessageByIdQuery(messageId);
-            Optional<Message> existingMessage = messageQueryService.handle(getMessageQuery);
-            
-            if (existingMessage.isEmpty() || !existingMessage.get().getGroupId().equals(groupId)) {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-            
-            var deleteMessageCommand = new DeleteMessageCommand(messageId);
-            Optional<UUID> deletedMessageId = messageCommandService.handle(deleteMessageCommand);
-            
-            if (deletedMessageId.isPresent()) {
-                return new ResponseEntity<>(HttpStatus.NO_CONTENT);
-            } else {
-                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-            }
-        } catch (Exception e) {
-            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
+        var companyId = getCurrentCompanyId();
+        if (companyId == null) throw new UnauthorizedException("Company not found");
+
+        // First verify the message belongs to the group
+        var getMessageQuery = new GetMessageByIdQuery(messageId);
+        var existingMessage = messageQueryService.handle(getMessageQuery)
+                .orElseThrow(() -> new ResourceNotFoundException("Message not found"));
+        
+        if (!existingMessage.getGroupId().equals(groupId)) {
+            throw new ResourceNotFoundException("Message not found in this group");
         }
+        
+        var deleteMessageCommand = new DeleteMessageCommand(messageId);
+        messageCommandService.handle(deleteMessageCommand);
+        
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }
 }

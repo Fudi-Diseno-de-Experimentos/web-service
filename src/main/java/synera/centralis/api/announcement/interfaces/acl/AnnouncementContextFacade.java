@@ -1,10 +1,14 @@
 package synera.centralis.api.announcement.interfaces.acl;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import synera.centralis.api.announcement.domain.model.queries.GetAllAnnouncementsQuery;
 import synera.centralis.api.announcement.domain.model.queries.GetAnnouncementByIdQuery;
 import synera.centralis.api.announcement.domain.services.AnnouncementQueryService;
 import synera.centralis.api.dashboard.application.internal.outboundservices.acl.ExternalContentInfo;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
@@ -25,10 +29,24 @@ import java.util.stream.Collectors;
 @Service
 public class AnnouncementContextFacade {
 
-    private final AnnouncementQueryService announcementQueryService;
+    private static final Logger LOGGER = LoggerFactory.getLogger(AnnouncementContextFacade.class);
 
-    public AnnouncementContextFacade(AnnouncementQueryService announcementQueryService) {
+    private final AnnouncementQueryService announcementQueryService;
+    private final synera.centralis.api.iam.interfaces.acl.IamContextFacade iamContextFacade;
+
+    public AnnouncementContextFacade(AnnouncementQueryService announcementQueryService, synera.centralis.api.iam.interfaces.acl.IamContextFacade iamContextFacade) {
         this.announcementQueryService = announcementQueryService;
+        this.iamContextFacade = iamContextFacade;
+    }
+
+    private CompanyId getCurrentCompanyId() {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || "anonymousUser".equals(authentication.getName())) {
+            return null;
+        }
+        String username = authentication.getName();
+        java.util.UUID companyId = iamContextFacade.fetchCompanyIdByUsername(username);
+        return companyId != null ? new CompanyId(companyId) : null;
     }
 
     /**
@@ -38,7 +56,9 @@ public class AnnouncementContextFacade {
      */
     public Optional<ExternalContentInfo> getAnnouncementInfo(UUID announcementId) {
         try {
-            var query = new GetAnnouncementByIdQuery(announcementId);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return Optional.empty();
+            var query = new GetAnnouncementByIdQuery(announcementId, companyId);
             var result = announcementQueryService.handle(query);
             
             if (result.isEmpty()) {
@@ -81,11 +101,13 @@ public class AnnouncementContextFacade {
      */
     public boolean announcementExists(UUID announcementId) {
         try {
-            var query = new GetAnnouncementByIdQuery(announcementId);
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return false;
+            var query = new GetAnnouncementByIdQuery(announcementId, companyId);
             var result = announcementQueryService.handle(query);
             return result.isPresent();
         } catch (Exception e) {
-            System.err.println("Error checking if announcement exists " + announcementId + ": " + e.getMessage());
+            LOGGER.error("Error checking if announcement exists {}: {}", announcementId, e.getMessage(), e);
             return false;
         }
     }
@@ -96,9 +118,11 @@ public class AnnouncementContextFacade {
      */
     public Optional<ExternalContentInfo> getMostViewedAnnouncement() {
         try {
+            var companyId = getCurrentCompanyId();
+            if (companyId == null) return Optional.empty();
             // Get all announcements and return the first one as "most viewed"
             // TODO: In the future, integrate with dashboard analytics for real "most viewed" data
-            var query = new GetAllAnnouncementsQuery();
+            var query = new GetAllAnnouncementsQuery(companyId);
             var announcements = announcementQueryService.handle(query);
             
             if (announcements.isEmpty()) {
@@ -114,7 +138,7 @@ public class AnnouncementContextFacade {
                 convertToLocalDateTime(announcement.getCreatedAt())
             ));
         } catch (Exception e) {
-            System.err.println("Error getting most viewed announcement: " + e.getMessage());
+            LOGGER.error("Error getting most viewed announcement: {}", e.getMessage(), e);
             return Optional.empty();
         }
     }

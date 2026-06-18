@@ -1,39 +1,36 @@
 package synera.centralis.api.notification.application.internal.eventhandlers;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.event.TransactionPhase;
-import synera.centralis.api.iam.domain.model.aggregates.User;
 import synera.centralis.api.iam.infrastructure.persistence.jpa.repositories.UserRepository;
 import synera.centralis.api.notification.domain.model.commands.CreateNotificationCommand;
 import synera.centralis.api.notification.domain.model.valueobjects.NotificationPriority;
 import synera.centralis.api.notification.domain.services.NotificationCommandService;
 import synera.centralis.api.shared.domain.events.UrgentAnnouncementCreatedEvent;
 
-import java.util.logging.Logger;
-
 /**
  * Event handler for urgent announcement created events.
  * Notifies all registered users when an urgent announcement is created.
  */
+@Slf4j
 @Component
 public class UrgentAnnouncementNotificationHandler {
-    
-    private static final Logger logger = Logger.getLogger(UrgentAnnouncementNotificationHandler.class.getName());
-    
+
     private final NotificationCommandService notificationCommandService;
     private final UserRepository userRepository;
-    
+
     public UrgentAnnouncementNotificationHandler(
-            NotificationCommandService notificationCommandService, 
+            NotificationCommandService notificationCommandService,
             UserRepository userRepository) {
         this.notificationCommandService = notificationCommandService;
         this.userRepository = userRepository;
     }
-    
+
     /**
      * Handles urgent announcement created events by creating notifications for all users
      * @param event The urgent announcement created event
@@ -42,50 +39,47 @@ public class UrgentAnnouncementNotificationHandler {
     @Async("eventTaskExecutor")
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void handle(UrgentAnnouncementCreatedEvent event) {
-        logger.info("🎯 EVENT HANDLER TRIGGERED: UrgentAnnouncementNotificationHandler");
-        logger.info("📢 Processing urgent announcement notification for: " + event.title());
-        logger.info("📝 Content: " + event.content());
-        logger.info("👤 Created by: " + event.createdBy());
-        
         try {
-            // Get all user UUIDs to notify
-            var allUsers = userRepository.findAll();
-            logger.info("👥 Found " + allUsers.size() + " users in database");
-            
-            var allUserIds = allUsers.stream()
-                    .map(user -> user.getId().toString()) // Use User entity ID (UUID)
-                    .toList();
-            
-            logger.info("📋 User UUIDs to notify: " + allUserIds);
-            
-            if (allUserIds.isEmpty()) {
-                logger.warning("⚠️ No users found to notify for urgent announcement: " + event.title());
+            if (event.companyId() == null) {
+                log.warn("Urgent announcement {} has no company; skipping notification fan-out",
+                        event.announcementId());
                 return;
             }
-            
+
+            // Only notify users belonging to the announcing company, not every
+            // user in the system.
+            var recipients = userRepository.findAllByCompanyId(event.companyId());
+
+            var recipientIds = recipients.stream()
+                    .map(user -> user.getId().toString()) // Use User entity ID (UUID)
+                    .toList();
+
+            if (recipientIds.isEmpty()) {
+                log.warn("No users found in company {} to notify for urgent announcement",
+                        event.companyId());
+                return;
+            }
+
             // Create notification command
             var command = new CreateNotificationCommand(
                     "Urgent: " + event.title(),
                     event.content(),
-                    allUserIds,
+                    recipientIds,
                     NotificationPriority.HIGH
             );
-            
-            logger.info("📤 Creating notification command: " + command.title());
-            
+
             // Send notification
             var result = notificationCommandService.handle(command);
-            
+
             if (result.isPresent()) {
-                logger.info("✅ Successfully created urgent announcement notification for " + 
-                           allUserIds.size() + " users. Notification ID: " + result.get().getId());
+                log.info("Urgent announcement notification created for {} users in company {}",
+                        recipientIds.size(), event.companyId());
             } else {
-                logger.severe("❌ Failed to create urgent announcement notification");
+                log.error("Failed to create urgent announcement notification");
             }
-            
+
         } catch (Exception e) {
-            logger.severe("💥 Error processing urgent announcement notification: " + e.getMessage());
-            e.printStackTrace();
+            log.error("Error processing urgent announcement notification", e);
         }
     }
 }

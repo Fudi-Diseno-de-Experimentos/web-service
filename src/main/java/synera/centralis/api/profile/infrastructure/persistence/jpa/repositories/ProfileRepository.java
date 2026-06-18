@@ -27,7 +27,7 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
      * @param userId the user ID
      * @return optional profile
      */
-    Optional<Profile> findByUserId(UserId userId);
+    Optional<Profile> findFirstByUserId(UserId userId);
     
     /**
      * Check if profile exists by user ID
@@ -35,4 +35,10 @@ public interface ProfileRepository extends JpaRepository<Profile, UUID> {
      * @return true if exists
      */
     boolean existsByUserId(UserId userId);
+
+    /**
+     * Find all profiles without a company assigned.
+     * @return list of profiles
+     */
+    List<Profile> findAllByCompanyIdIsNull();
 }

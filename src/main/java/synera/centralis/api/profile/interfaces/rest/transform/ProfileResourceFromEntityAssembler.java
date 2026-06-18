@@ -22,8 +22,7 @@ public class ProfileResourceFromEntityAssembler {
                 entity.getEmail(),
                 entity.getFullName(),
                 entity.getAvatarUrl(),
-                entity.getPosition(),
-                entity.getDepartment()
+                entity.getCompanyId() != null ? entity.getCompanyId().companyId() : null
         );
     }
 }

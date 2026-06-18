@@ -11,18 +11,25 @@ import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import synera.centralis.api.announcement.domain.model.commands.DeleteCommentCommand;
+import synera.centralis.api.announcement.domain.model.queries.GetAnnouncementByIdQuery;
 import synera.centralis.api.announcement.domain.model.queries.GetCommentByIdQuery;
 import synera.centralis.api.announcement.domain.model.queries.GetCommentsByAnnouncementQuery;
+import synera.centralis.api.announcement.domain.services.AnnouncementQueryService;
 import synera.centralis.api.announcement.domain.services.CommentCommandService;
 import synera.centralis.api.announcement.domain.services.CommentQueryService;
 import synera.centralis.api.announcement.interfaces.rest.resources.CommentResource;
 import synera.centralis.api.announcement.interfaces.rest.resources.CreateCommentResource;
 import synera.centralis.api.announcement.interfaces.rest.transform.CommentResourceFromEntityAssembler;
 import synera.centralis.api.announcement.interfaces.rest.transform.CreateCommentCommandFromResourceAssembler;
+import synera.centralis.api.iam.infrastructure.authorization.sfs.utils.SecurityUtils;
+import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
+import synera.centralis.api.shared.domain.exceptions.UnauthorizedException;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 import java.util.UUID;
 
@@ -32,17 +39,44 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/v1")
+@PreAuthorize("isAuthenticated()")
 @Tag(name = "Comments", description = "Operations related to announcement comments management")
 public class CommentController {
 
     private final CommentCommandService commentCommandService;
     private final CommentQueryService commentQueryService;
+    private final AnnouncementQueryService announcementQueryService;
 
     @Autowired
     public CommentController(CommentCommandService commentCommandService,
-                           CommentQueryService commentQueryService) {
+                           CommentQueryService commentQueryService,
+                           AnnouncementQueryService announcementQueryService) {
         this.commentCommandService = commentCommandService;
         this.commentQueryService = commentQueryService;
+        this.announcementQueryService = announcementQueryService;
+    }
+
+    /**
+     * Returns the authenticated caller's company, or throws if unauthenticated.
+     */
+    private CompanyId getCurrentCompanyId() {
+        CompanyId companyId = SecurityUtils.getCurrentCompanyId();
+        if (companyId == null || companyId.companyId() == null) {
+            throw new UnauthorizedException("User is not associated with a company");
+        }
+        return companyId;
+    }
+
+    /**
+     * Ensures the given announcement belongs to the caller's company.
+     * Cross-tenant access is surfaced as a 404 so existence is not leaked.
+     */
+    private void verifyAnnouncementInCompany(UUID announcementId) {
+        var announcement = announcementQueryService.handle(
+                new GetAnnouncementByIdQuery(announcementId, getCurrentCompanyId()));
+        if (announcement.isEmpty()) {
+            throw new ResourceNotFoundException("Announcement not found");
+        }
     }
 
     @PostMapping("/announcements/{announcementId}/comments")
@@ -59,6 +93,7 @@ public class CommentController {
             @Parameter(description = "Unique identifier of the announcement") @PathVariable UUID announcementId,
             @Valid @RequestBody CreateCommentResource resource) {
         
+        verifyAnnouncementInCompany(announcementId);
         try {
             var command = CreateCommentCommandFromResourceAssembler.toCommandFromResource(announcementId, resource);
             var comment = commentCommandService.handle(command);
@@ -89,12 +124,13 @@ public class CommentController {
         
         var query = new GetCommentByIdQuery(commentId);
         var comment = commentQueryService.handle(query);
-        
+
         if (comment.isPresent()) {
+            verifyAnnouncementInCompany(comment.get().getAnnouncementId());
             var resource = CommentResourceFromEntityAssembler.toResourceFromEntity(comment.get());
             return ResponseEntity.ok(resource);
         }
-        
+
         return ResponseEntity.notFound().build();
     }
 
@@ -106,6 +142,7 @@ public class CommentController {
     public ResponseEntity<List<CommentResource>> getCommentsByAnnouncement(
             @Parameter(description = "Unique identifier of the announcement") @PathVariable UUID announcementId) {
         
+        verifyAnnouncementInCompany(announcementId);
         var query = new GetCommentsByAnnouncementQuery(announcementId);
         var comments = commentQueryService.handle(query);
         var resources = comments.stream()
@@ -124,13 +161,19 @@ public class CommentController {
     public ResponseEntity<Void> deleteComment(
             @Parameter(description = "Unique identifier of the comment") @PathVariable UUID commentId) {
         
+        var existing = commentQueryService.handle(new GetCommentByIdQuery(commentId));
+        if (existing.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        verifyAnnouncementInCompany(existing.get().getAnnouncementId());
+
         var command = new DeleteCommentCommand(commentId);
         boolean deleted = commentCommandService.handle(command);
-        
+
         if (deleted) {
             return ResponseEntity.noContent().build();
         }
-        
+
         return ResponseEntity.notFound().build();
     }
 }

@@ -1,5 +1,7 @@
 package synera.centralis.api.chat.application.internal.commandservices;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import synera.centralis.api.chat.domain.model.commands.CreateChatImageCommand;
@@ -16,6 +18,8 @@ import java.util.Optional;
  */
 @Service
 public class ChatImageCommandServiceImpl implements ChatImageCommandService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ChatImageCommandServiceImpl.class);
 
     private final ChatImageRepository chatImageRepository;
 
@@ -36,7 +40,7 @@ public class ChatImageCommandServiceImpl implements ChatImageCommandService {
             var savedChatImage = chatImageRepository.save(chatImage);
             return Optional.of(savedChatImage);
         } catch (Exception e) {
-            System.err.println("Error creating chat image: " + e.getMessage());
+            LOGGER.error("Error creating chat image: {}", e.getMessage(), e);
             return Optional.empty();
         }
     }
@@ -57,7 +61,7 @@ public class ChatImageCommandServiceImpl implements ChatImageCommandService {
             var savedChatImage = chatImageRepository.save(chatImage);
             return Optional.of(savedChatImage);
         } catch (Exception e) {
-            System.err.println("Error deleting chat image: " + e.getMessage());
+            LOGGER.error("Error deleting chat image: {}", e.getMessage(), e);
             return Optional.empty();
         }
     }

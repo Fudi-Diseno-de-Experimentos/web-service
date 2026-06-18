@@ -10,5 +10,6 @@ import java.util.UUID;
 
 @Repository
 public interface CompanyRepository extends JpaRepository<Company, UUID> {
-    Optional<Company> findByUserId(UserId userId);
+    Optional<Company> findFirstByUserId(UserId userId);
+    Optional<Company> findByJoinCode(String joinCode);
 }

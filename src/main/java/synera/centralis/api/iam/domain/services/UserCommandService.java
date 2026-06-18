@@ -21,28 +21,28 @@ public interface UserCommandService {
     /**
      * Handle sign in command
      * @param command the {@link SignInCommand} command
-     * @return an {@link Optional} of {@link ImmutablePair} of {@link User} and {@link String}
+     * @return an {@link ImmutablePair} of {@link User} and {@link String}
      */
-    Optional<ImmutablePair<User, String>> handle(SignInCommand command);
+    ImmutablePair<User, String> handle(SignInCommand command);
 
     /**
      * Handle sign up command
      * @param command the {@link SignUpCommand} command
-     * @return an {@link Optional} of {@link User} entity
+     * @return a {@link User} entity
      */
-    Optional<User> handle(SignUpCommand command);
+    User handle(SignUpCommand command);
 
     /**
      * Handle update user command
      * @param command the {@link UpdateUserCommand} command
-     * @return an {@link Optional} of {@link User} entity
+     * @return a {@link User} entity
      */
-    Optional<User> handle(UpdateUserCommand command);
+    User handle(UpdateUserCommand command);
 
     /**
      * Handle assign user to company command
      * @param command the {@link AssignUserToCompanyCommand} command
-     * @return an {@link Optional} of {@link User} entity
+     * @return a {@link User} entity
      */
-    Optional<User> handle(AssignUserToCompanyCommand command);
+    User handle(AssignUserToCompanyCommand command);
 }

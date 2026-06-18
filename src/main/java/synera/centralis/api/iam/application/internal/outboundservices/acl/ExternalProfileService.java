@@ -27,8 +27,8 @@ public class ExternalProfileService {
      * @param email the email address
      * @return Optional profile ID if created successfully
      */
-    public Optional<Long> createBasicProfile(String userIdStr, String firstName, String lastName, String email) {
-        var profileId = profileContextFacade.createBasicProfile(userIdStr, firstName, lastName, email);
+    public Optional<Long> createBasicProfile(String userIdStr, String firstName, String lastName, String email, String url_image) {
+        var profileId = profileContextFacade.createBasicProfile(userIdStr, firstName, lastName, email, url_image);
         return profileId == 0L ? Optional.empty() : Optional.of(profileId);
     }
 

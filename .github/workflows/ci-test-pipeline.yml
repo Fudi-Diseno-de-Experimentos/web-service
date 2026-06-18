@@ -1,0 +1,37 @@
+# Nombre identificativo del flujo en la pestaña Actions de GitHub
+name: Core Verification - Continuous Integration
+
+# Disparadores (Events): se ejecuta en push directo a estas ramas y en cada
+# pull request hacia ellas, de modo que los PRs reciben verificación antes del merge.
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+# Trabajos a ejecutar en los servidores en la nube de GitHub
+jobs:
+  run-backend-tests:
+    name: Compile and Execute Test Suites
+    runs-on: ubuntu-latest # Sistema operativo virtual limpio
+
+    steps:
+      # 1. Clonar el código fuente del repositorio en el contenedor virtual
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # 2. Configurar el entorno de ejecución de Java (alineado con pom.xml y Dockerfile: 24)
+      - name: Set up OpenJDK 24
+        uses: actions/setup-java@v4
+        with:
+          java-version: '24'
+          distribution: 'temurin'
+          cache: 'maven' # Almacena dependencias para agilizar futuras ejecuciones
+
+      # 3. Descargar dependencias y compilar el proyecto en Spring Boot
+      - name: Compile Application
+        run: mvn clean compile
+
+      # 4. Ejecutar la verificación completa (compilación + pruebas unitarias e integrales)
+      - name: Execute Verification
+        run: mvn verify

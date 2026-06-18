@@ -12,7 +12,7 @@ public record AnnouncementViewerResource(
         String userId,
         String userFullName,
         String userEmail,
-        String userDepartment,
+        String userImageUrl,
         @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
         LocalDateTime viewedAt,
         String announcementId,

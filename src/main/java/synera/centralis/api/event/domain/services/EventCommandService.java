@@ -15,21 +15,27 @@ public interface EventCommandService {
     /**
      * Handles the creation of a new event.
      * @param command the create event command
-     * @return the created event or empty if creation failed
+     * @return the created event
      */
-    Optional<Event> handle(CreateEventCommand command);
+    Event handle(CreateEventCommand command);
 
     /**
      * Handles updating event information.
      * @param command the update event command
-     * @return the updated event or empty if update failed
+     * @return the updated event
      */
-    Optional<Event> handle(UpdateEventCommand command);
+    Event handle(UpdateEventCommand command);
 
     /**
      * Handles deleting an event.
      * @param command the delete event command
-     * @return the deleted event ID or empty if deletion failed
      */
-    Optional<UUID> handle(DeleteEventCommand command);
+    boolean handle(DeleteEventCommand command);
+
+    /**
+     * Handles a member accepting or declining their event invitation.
+     * @param command the respond-to-invitation command
+     * @return the updated event
+     */
+    Event handle(RespondToEventInvitationCommand command);
 }

@@ -62,8 +62,8 @@ public class MessageQueryServiceImpl implements MessageQueryService {
     @Override
     public List<Message> handle(GetMessagesByStatusQuery query) {
         try {
-            log.debug("Retrieving messages with status: {}", query.status());
-            return messageRepository.findByStatusOrderBySentAtDesc(query.status());
+            log.debug("Retrieving messages with status {} in group {}", query.status(), query.groupId());
+            return messageRepository.findByGroupIdAndStatus(query.groupId(), query.status());
         } catch (Exception e) {
             log.error("Error retrieving messages by status: {}", e.getMessage(), e);
             return List.of();

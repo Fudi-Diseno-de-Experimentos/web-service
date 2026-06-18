@@ -8,6 +8,9 @@ import synera.centralis.api.iam.interfaces.rest.resources.AuthenticatedUserResou
 
 public class AuthenticatedUserResourceFromEntityAssembler {
     public static AuthenticatedUserResource toResourceFromEntity(User user, String token) {
-        return new AuthenticatedUserResource(user.getId().toString(), user.getUsername(), token);
+        String companyIdStr = user.getCompanyId() != null && user.getCompanyId().companyId() != null 
+                ? user.getCompanyId().companyId().toString() 
+                : null;
+        return new AuthenticatedUserResource(user.getId().toString(), user.getUsername(), token, companyIdStr);
     }
 }

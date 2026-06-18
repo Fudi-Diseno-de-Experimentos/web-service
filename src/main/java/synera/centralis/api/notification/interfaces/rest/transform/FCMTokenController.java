@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.List;
 
-// @RestController
+@RestController
 @RequestMapping("/api/v1/users")
 @Tag(name = "FCM Tokens", description = "Firebase Cloud Messaging token management endpoints")
 public class FCMTokenController {

@@ -2,6 +2,7 @@ package synera.centralis.api.announcement.domain.model.commands;
 
 import synera.centralis.api.announcement.domain.model.valueobjects.Priority;
 import java.util.UUID;
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 /**
  * Create Announcement Command
@@ -12,7 +13,8 @@ public record CreateAnnouncementCommand(
     String description,
     String image,
     Priority priority,
-    UUID createdBy
+    UUID createdBy,
+    CompanyId companyId
 ) {
     public CreateAnnouncementCommand {
         if (title == null || title.trim().isEmpty()) {
@@ -26,6 +28,9 @@ public record CreateAnnouncementCommand(
         }
         if (createdBy == null) {
             throw new IllegalArgumentException("CreatedBy must be a valid user ID");
+        }
+        if (companyId == null) {
+            throw new IllegalArgumentException("Company ID cannot be null");
         }
         if (title.trim().length() > 200) {
             throw new IllegalArgumentException("Title cannot exceed 200 characters");

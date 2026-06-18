@@ -98,7 +98,7 @@ public class WebSecurityConfiguration {
             
             // Para endpoints SSE: sin credentials, wildcard permitido
             cors.setAllowedOriginPatterns(List.of("*"));
-            cors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE"));
+            cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
             cors.setAllowedHeaders(List.of("*"));
             cors.setAllowCredentials(true); // Necesario para endpoints autenticados
             
@@ -117,8 +117,11 @@ public class WebSecurityConfiguration {
                                 "/api/v1/manufacturers",
                                 "/api/v1/announcements/**",
                                 "/api/v1/comments/**",
-                                "/api/v1/sse/**", // ← AGREGADO: Permitir endpoints SSE sin autenticación
-                                "/webjars/**").permitAll()
+                                "/api/v1/sse/**",   // Permitir endpoints SSE sin autenticación
+                                "/ws-chat/**",      // WebSocket handshake — la auth JWT se hace en STOMP CONNECT
+                                "/webjars/**",
+                                "/error",            // Permitir el dispatch de error para que los 500 reales no se enmascaren como 401
+                                "/health").permitAll()
                         .anyRequest().authenticated());
         http.authenticationProvider(authenticationProvider());
         http.addFilterBefore(authorizationRequestFilter(), UsernamePasswordAuthenticationFilter.class);

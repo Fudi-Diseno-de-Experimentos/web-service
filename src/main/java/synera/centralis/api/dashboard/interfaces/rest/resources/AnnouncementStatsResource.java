@@ -12,8 +12,7 @@ public record AnnouncementStatsResource(
         long totalViews,
         double viewPercentage,
         double notViewedPercentage,
-        ViewStatsData viewStats,
-        List<DepartmentBreakdownData> departmentBreakdown
+        ViewStatsData viewStats
 ) {
 
     public record ViewStatsData(
@@ -25,12 +24,5 @@ public record AnnouncementStatsResource(
             long count,
             double percentage,
             String color
-    ) {}
-
-    public record DepartmentBreakdownData(
-            String department,
-            long totalUsers,
-            long viewedUsers,
-            double percentage
     ) {}
 }

@@ -116,6 +116,7 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
             .map(user -> new ViewsSummaryResource.TopActiveUserResource(
                 user.userId().toString(),
                 user.fullName(),
+                user.imageUrl(),
                 15L // TODO: Get actual view count for user
             ))
             .toList();
@@ -149,27 +150,6 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
                 null
             ));
 
-        // Get department breakdown
-        var departmentStats = externalUserService.getDepartmentStatistics();
-        var departmentBreakdown = departmentStats.entrySet().stream()
-            .map(entry -> {
-                // Count views from users in this department
-                long departmentViews = views.stream()
-                    .map(view -> externalUserService.fetchUserProfile(view.getUserId()))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .filter(user -> entry.getKey().equals(user.department()))
-                    .count();
-                
-                return new AnnouncementStatsResource.DepartmentBreakdownData(
-                    entry.getKey(),
-                    entry.getValue(),
-                    departmentViews,
-                    (departmentViews * 100.0) / entry.getValue()
-                );
-            })
-            .toList();
-
         // Calculate percentages
         double viewPercentage = (totalViews * 100.0) / totalUsers;
         double notViewedPercentage = ((totalUsers - totalViews) * 100.0) / totalUsers;
@@ -187,8 +167,7 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
             totalViews,
             viewPercentage,
             notViewedPercentage,
-            viewStats,
-            departmentBreakdown
+            viewStats
         );
     }
 
@@ -214,34 +193,6 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
                 LocalDateTime.now()
             ));
 
-        // Get department breakdown
-        // Note: Currently using all departments in the system, but ideally should use only departments
-        // of users registered for this specific event. This requires getting the full list of registered users
-        // from the Event context, which would be a future enhancement.
-        var departmentStats = externalUserService.getDepartmentStatistics();
-        var departmentBreakdown = departmentStats.entrySet().stream()
-            .map(entry -> {
-                // Count views from users in this department
-                long departmentViews = views.stream()
-                    .map(view -> externalUserService.fetchUserProfile(view.getUserId()))
-                    .filter(Optional::isPresent)
-                    .map(Optional::get)
-                    .filter(user -> entry.getKey().equals(user.department()))
-                    .count();
-                
-                // TODO: Use actual registered users count per department for this event instead of total department size
-                long departmentTotal = entry.getValue();
-                double percentage = departmentTotal > 0 ? (departmentViews * 100.0) / departmentTotal : 0.0;
-                
-                return new EventStatsResource.DepartmentBreakdownData(
-                    entry.getKey(),
-                    departmentTotal,
-                    departmentViews,
-                    percentage
-                );
-            })
-            .toList();
-
         // Calculate percentages (avoid division by zero)
         double viewPercentage = totalUsers > 0 ? (totalViews * 100.0) / totalUsers : 0.0;
         double notViewedPercentage = totalUsers > 0 ? ((totalUsers - totalViews) * 100.0) / totalUsers : 0.0;
@@ -259,8 +210,7 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
             totalViews,
             viewPercentage,
             notViewedPercentage,
-            viewStats,
-            departmentBreakdown
+            viewStats
         );
     }
 
@@ -306,7 +256,7 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
         var contentInfo = externalContentService.fetchAnnouncementInfo(new AnnouncementId(contentView.getContentId()))
             .orElse(new ExternalContentInfo(contentView.getContentId(), "Unknown Announcement", "Content not found", null, null));
         var userInfo = externalUserService.fetchUserProfile(contentView.getUserId())
-            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com", "Unknown", "Unknown"));
+            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com", ""));
         
         return new UserAnnouncementViewResource(
             contentView.getId().toString(),
@@ -315,13 +265,14 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
             contentInfo.description(),
             contentView.getViewDateTime(),
             contentView.getUserId().value().toString(),
-            userInfo.fullName()
+            userInfo.fullName(),
+            userInfo.imageUrl()
         );
     }
 
     private AnnouncementViewerResource toAnnouncementViewerResource(ContentView contentView) {
         var userInfo = externalUserService.fetchUserProfile(contentView.getUserId())
-            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com", "Unknown", "Unknown"));
+            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com", ""));
         var contentInfo = externalContentService.fetchAnnouncementInfo(new AnnouncementId(contentView.getContentId()))
             .orElse(new ExternalContentInfo(contentView.getContentId(), "Unknown Announcement", "Content not found", null, null));
         
@@ -330,7 +281,7 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
             contentView.getUserId().value().toString(),
             userInfo.fullName(),
             userInfo.email(),
-            userInfo.department(),
+            userInfo.imageUrl(),
             contentView.getViewDateTime(),
             contentView.getContentId().toString(),
             contentInfo.title()
@@ -341,7 +292,7 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
         var contentInfo = externalContentService.fetchEventInfo(new EventId(contentView.getContentId()))
             .orElse(new ExternalContentInfo(contentView.getContentId(), "Unknown Event", "Event not found", "Unknown Location", LocalDateTime.now()));
         var userInfo = externalUserService.fetchUserProfile(contentView.getUserId())
-            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com", "Unknown", "Unknown"));
+            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com", ""));
         
         return new UserEventViewResource(
             contentView.getId().toString(),
@@ -352,13 +303,14 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
             contentInfo.location(),
             contentView.getViewDateTime(),
             contentView.getUserId().value().toString(),
-            userInfo.fullName()
+            userInfo.fullName(),
+            userInfo.imageUrl()
         );
     }
 
     private EventViewerResource toEventViewerResource(ContentView contentView) {
         var userInfo = externalUserService.fetchUserProfile(contentView.getUserId())
-            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com", "Unknown", "Unknown"));
+            .orElse(new ExternalUserProfile(contentView.getUserId().value(), "Unknown User", "unknown@email.com", ""));
         var contentInfo = externalContentService.fetchEventInfo(new EventId(contentView.getContentId()))
             .orElse(new ExternalContentInfo(contentView.getContentId(), "Unknown Event", "Event not found", "Unknown Location", LocalDateTime.now()));
         
@@ -367,8 +319,7 @@ public class ContentViewQueryServiceImpl implements ContentViewQueryService {
             contentView.getUserId().value().toString(),
             userInfo.fullName(),
             userInfo.email(),
-            userInfo.department(),
-            userInfo.position(),
+            userInfo.imageUrl(),
             contentView.getViewDateTime(),
             contentView.getContentId().toString(),
             contentInfo.title()

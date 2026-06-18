@@ -5,10 +5,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import synera.centralis.api.chat.domain.model.aggregates.Group;
+import synera.centralis.api.chat.domain.model.valueobjects.GroupType;
 import synera.centralis.api.chat.domain.model.valueobjects.UserId;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+
+import synera.centralis.api.shared.domain.model.valueobjects.CompanyId;
 
 /**
  * JPA Repository interface for Group aggregate.
@@ -17,13 +21,35 @@ import java.util.UUID;
 @Repository
 public interface GroupRepository extends JpaRepository<Group, UUID> {
 
+    Optional<Group> findByIdAndCompanyId(UUID id, CompanyId companyId);
+    List<Group> findAllByCompanyId(CompanyId companyId);
+
     /**
      * Find all groups where the specified user is a member.
      * @param memberId the user ID to search for
      * @return list of groups where the user is a member
      */
+    @Query("SELECT g FROM Group g JOIN g.members m WHERE m = :memberId AND g.companyId = :companyId")
+    List<Group> findByMembersContainingAndCompanyId(@Param("memberId") UserId memberId, @Param("companyId") CompanyId companyId);
+
     @Query("SELECT g FROM Group g JOIN g.members m WHERE m = :memberId")
     List<Group> findByMembersContaining(@Param("memberId") UserId memberId);
+
+    /**
+     * Busca la conversación directa entre dos usuarios dentro de una compañía.
+     * Las conversaciones directas tienen exactamente 2 miembros y tipo DIRECT,
+     * por lo que a lo sumo existe una por par de usuarios y compañía.
+     * @param a uno de los participantes
+     * @param b el otro participante
+     * @param companyId la compañía
+     * @return lista (0 o 1) con la conversación directa si existe
+     */
+    @Query("SELECT g FROM Group g JOIN g.members ma JOIN g.members mb "
+            + "WHERE g.type = :type AND g.companyId = :companyId AND ma = :a AND mb = :b")
+    List<Group> findDirectConversation(@Param("a") UserId a,
+                                       @Param("b") UserId b,
+                                       @Param("companyId") CompanyId companyId,
+                                       @Param("type") GroupType type);
 
     /**
      * Check if a group exists by ID.
@@ -31,12 +57,16 @@ public interface GroupRepository extends JpaRepository<Group, UUID> {
      * @return true if group exists, false otherwise
      */
     boolean existsById(UUID groupId);
+    boolean existsByIdAndCompanyId(UUID groupId, CompanyId companyId);
 
     /**
      * Find groups by name containing the specified text (case-insensitive).
      * @param name the text to search for in group names
      * @return list of groups with matching names
      */
+    @Query("SELECT g FROM Group g WHERE LOWER(g.name) LIKE LOWER(CONCAT('%', :name, '%')) AND g.companyId = :companyId")
+    List<Group> findByNameContainingIgnoreCaseAndCompanyId(@Param("name") String name, @Param("companyId") CompanyId companyId);
+
     @Query("SELECT g FROM Group g WHERE LOWER(g.name) LIKE LOWER(CONCAT('%', :name, '%'))")
     List<Group> findByNameContainingIgnoreCase(@Param("name") String name);
 
@@ -45,6 +75,9 @@ public interface GroupRepository extends JpaRepository<Group, UUID> {
      * @param visibility the group visibility
      * @return list of groups with the specified visibility
      */
+    @Query("SELECT g FROM Group g WHERE g.visibility = :visibility AND g.companyId = :companyId")
+    List<Group> findByVisibilityAndCompanyId(@Param("visibility") String visibility, @Param("companyId") CompanyId companyId);
+
     @Query("SELECT g FROM Group g WHERE g.visibility = :visibility")
     List<Group> findByVisibility(@Param("visibility") String visibility);
 

@@ -10,6 +10,8 @@ import synera.centralis.api.profile.domain.model.commands.UpdateProfileCommand;
 import synera.centralis.api.profile.domain.model.valueobjects.UserId;
 import synera.centralis.api.profile.domain.services.ProfileCommandService;
 import synera.centralis.api.profile.infrastructure.persistence.jpa.repositories.ProfileRepository;
+import synera.centralis.api.shared.domain.exceptions.DuplicateResourceException;
+import synera.centralis.api.shared.domain.exceptions.ResourceNotFoundException;
 
 /**
  * Profile command service implementation
@@ -25,11 +27,11 @@ public class ProfileCommandServiceImpl implements ProfileCommandService {
     }
 
     @Override
-    public Optional<Profile> handle(CreateProfileCommand command) {
+    public Profile handle(CreateProfileCommand command) {
         // Validate that user doesn't already have a profile
         var userId = new UserId(command.userId());
         if (profileRepository.existsByUserId(userId)) {
-            throw new IllegalArgumentException("User already has a profile");
+            throw new DuplicateResourceException("User already has a profile");
         }
 
         // Create new profile
@@ -38,37 +40,28 @@ public class ProfileCommandServiceImpl implements ProfileCommandService {
             command.firstName(),
             command.lastName(),
             command.email(),
-            command.avatarUrl(),
-            command.position(),
-            command.department()
+            command.avatarUrl()
         );
 
         // Save and return
-        var savedProfile = profileRepository.save(profile);
-        return Optional.of(savedProfile);
+        return profileRepository.save(profile);
     }
 
     @Override
-    public Optional<Profile> handle(UpdateProfileCommand command) {
+    public Profile handle(UpdateProfileCommand command) {
         // Find existing profile
-        var existingProfile = profileRepository.findById(command.profileId());
-        if (existingProfile.isEmpty()) {
-            throw new IllegalArgumentException("Profile not found");
-        }
+        var profile = profileRepository.findById(command.profileId())
+            .orElseThrow(() -> new ResourceNotFoundException("Profile not found"));
 
         // Update profile
-        var profile = existingProfile.get();
         profile.updateProfile(
             command.firstName(),
             command.lastName(),
             command.email(),
-            command.avatarUrl(),
-            command.position(),
-            command.department()
+            command.avatarUrl()
         );
 
         // Save and return
-        var savedProfile = profileRepository.save(profile);
-        return Optional.of(savedProfile);
+        return profileRepository.save(profile);
     }
 }
