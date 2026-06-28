@@ -22,7 +22,7 @@ import synera.centralis.api.notification.infrastructure.messaging.fcm.FCMTokenSe
  * with FCM push notification delivery.
  */
 @Slf4j
-// @Component
+@Component
 public class FCMNotificationHandler {
 
     // Dependencies for FCM notification handling
